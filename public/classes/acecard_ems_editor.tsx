@@ -107,6 +107,9 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
   componentDidMount() {
     this._fetchWFSColumns();
   }
+  // TODO see if we can figure out the WFS link from the DescribeLayer request
+  // https://docs.qgis.org/3.28/en/docs/server_manual/services/wms.html#wms-describelayer
+  // Not all wms/wfs use the same url path which is annoying
   async _fetchWFSColumns(): Promise<void> {
     const queryParams = {
       version: '2.0.0',
