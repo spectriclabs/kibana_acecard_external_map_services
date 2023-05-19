@@ -1,0 +1,15 @@
+{
+  "id": "acecardExternalMapServices",
+  "version": "1.0.0",
+  "kibanaVersion": "kibana",
+  "configPath": ["acecard.maps"],
+  "owner": {
+    "name": "kibana-gis",
+    "githubTeam": "kibana-gis"
+  },
+  "description": "An example plugin for creating a custom raster source for Elastic Maps",
+  "server": true,
+  "ui": true,
+  "requiredPlugins": ["navigation", "data", "maps", "kibanaReact"],
+  "optionalPlugins": ["kibanaUtils", "kibanaReact"]
+}
