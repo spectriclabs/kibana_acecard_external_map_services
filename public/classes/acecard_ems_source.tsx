@@ -384,6 +384,8 @@ export class AcecardEMSSource implements IRasterSource {
     }
     return cqlStatements;
   }
+
+  // FIXME create CQL filter from DSL filter dataFilters.sourceQuery they patched this is 8.8.0 to pass it down correctly.
   async getUrlTemplate(dataFilters: DataFilters): Promise<string> {
     const { timeslice, timeFilters } = dataFilters;
     let start;
@@ -422,7 +424,6 @@ export class AcecardEMSSource implements IRasterSource {
       params.cql_filter = cqlStatements.join(' AND ');
     }
 
-    // TODO get the time field if appropriate and POPULATE the CQL '{time}'
     return `${this._descriptor.baseUrl}?${new URLSearchParams(params)}&bbox={bbox-epsg-3857}`;
     // return NOT_SETUP;
   }

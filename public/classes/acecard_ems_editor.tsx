@@ -154,7 +154,6 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     this.setState({ ...this.state, services });
   }
   render() {
-    const config = getConfig();
     const selectedServerOptions: Array<EuiComboBoxOptionOption<string>> = [];
     const selectedLayerOptions: Array<EuiComboBoxOptionOption<string>> = [];
     const { selectedServer, layers, selectedLayer, services } = this.state;
