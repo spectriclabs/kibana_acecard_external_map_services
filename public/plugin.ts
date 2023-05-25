@@ -8,6 +8,7 @@
 
 import { CoreSetup, CoreStart, Plugin, PluginInitializerContext } from '@kbn/core/public';
 import {
+  AcecardExternalMapsSetupApi,
   AcecardExternalMapsSourcePluginSetup,
   AcecardExternalMapsSourcePluginStart,
 } from './types';
@@ -15,7 +16,8 @@ import { AcecardEMSSource } from './classes/acecard_ems_source';
 import { acecardEMSLayerWizard } from './classes/acecard_ems_layer_wizard';
 import { PLUGIN_ID, PLUGIN_NAME } from '../common';
 import { AcecardEMSConfig } from '../common/config';
-import { setConfig } from './config'
+import { registerTootipHandler, setConfig } from './config';
+
 export class AcecardExternalMapsSourcePlugin
   implements
     Plugin<void, void, AcecardExternalMapsSourcePluginSetup, AcecardExternalMapsSourcePluginStart>
@@ -27,7 +29,7 @@ export class AcecardExternalMapsSourcePlugin
   public setup(
     core: CoreSetup<AcecardExternalMapsSourcePluginStart>,
     { maps: mapsSetup }: AcecardExternalMapsSourcePluginSetup
-  ) {
+  ): AcecardExternalMapsSetupApi {
     // Register the Custom raster layer wizard with the Maps application
     mapsSetup.registerSource({
       type: AcecardEMSSource.type,
@@ -52,11 +54,12 @@ export class AcecardExternalMapsSourcePlugin
         return () => {};
       },
     });
+    return { registerTootipHandler };
   }
 
   public start(core: CoreStart, plugins: AcecardExternalMapsSourcePluginStart) {
-    let config = this._initializerContext.config.get<AcecardEMSConfig>();
-    setConfig(config)
+    const config = this._initializerContext.config.get<AcecardEMSConfig>();
+    setConfig(config);
   }
 
   public stop() {}

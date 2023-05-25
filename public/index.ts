@@ -17,4 +17,5 @@ export function plugin(initializerContext: PluginInitializerContext) {
 export type {
   AcecardExternalMapsSourcePluginSetup,
   AcecardExternalMapsSourcePluginStart,
+  AcecardExternalMapsSetupApi,
 } from './types';

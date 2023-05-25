@@ -7,6 +7,7 @@
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 import React, { ReactElement } from 'react';
+import { render } from 'react-dom';
 import { calculateBounds } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
 import type {
@@ -29,6 +30,7 @@ import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/sour
 import { Filter } from '@kbn/es-query';
 import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
 import { getRotatedViewport, toWKT } from './utils';
+import { ExtraHandlers, KeyPairs } from './tooltips';
 
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -85,14 +87,13 @@ export class AcecardEMSSource implements IRasterSource {
 
   constructor(sourceDescriptor: AcecardEMSSourceDescriptor) {
     this._descriptor = sourceDescriptor;
-    // Can we get the WFS info here?
   }
   async hasLegendDetails(): Promise<boolean> {
-    return true;
+    return false;
   }
 
   renderLegendDetails(): ReactElement<any> | null {
-    return <img alt="Radar legend" src="https://nowcoast.noaa.gov/images/legends/radar.png" />;
+    return null;
   }
   async canSkipSourceUpdate(
     dataRequest: DataRequest,
@@ -206,12 +207,26 @@ export class AcecardEMSSource implements IRasterSource {
         group = [];
       }
     });
+    // TODO add hooks for tooltip plugins that allow extendability of the tooltip from other plugins.
+    // Allowing for reuse of this general code for a bunch of layers but specific functionality those that want it
+    // Example: USGS active mines specific plugin
+    // when source is active mines and layer is mine plants we want the ability to put an email button in the tooltip when the state_local is Texas
+    // So users can easily contact the county level in charge
     if (groups.length) {
-      window.console.log(groups[0]);
-      new Popup()
-        .setHTML(groups[0].map((e: string[]) => `${e[0]} = ${e[1]}`).join('<br>'))
-        .setLngLat(click.lngLat)
-        .addTo(click.target);
+      const container = document.createElement('div');
+      render(
+        <>
+          <KeyPairs pairs={groups[0]} />
+          <ExtraHandlers
+            wmsBase={this._descriptor.baseUrl}
+            layer={this._descriptor.layer}
+            keypair={groups[0]}
+          />
+        </>,
+        container
+      );
+      // FIX ME react
+      new Popup().setDOMContent(container).setLngLat(click.lngLat).addTo(click.target);
     }
   }
   isSourceStale(mbSource: RasterTileSource, sourceData: RasterTileSourceData): boolean {
