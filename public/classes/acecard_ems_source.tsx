@@ -25,26 +25,11 @@ import type {
 } from '@kbn/maps-plugin/public';
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
 import { MapMouseEvent, Popup, RasterTileSource } from 'maplibre-gl';
-import { parseString } from 'xml2js';
 import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/source';
 import { Filter } from '@kbn/es-query';
 import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
 import { getRotatedViewport, toWKT } from './utils';
-// promise based wrapper around parseString
-const XML_PARSER = new DOMParser();
-export async function parseXmlString(xmlString: string): Promise<unknown> {
-  const parsePromise = new Promise((resolve, reject) => {
-    parseString(xmlString, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    });
-  });
 
-  return await parsePromise;
-}
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
 const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
@@ -82,8 +67,6 @@ export class AcecardEMSSource implements IRasterSource {
   static type = 'AcecardEMSSource';
 
   readonly _descriptor: AcecardEMSSourceDescriptor;
-  private _wmsLayers?: string[];
-  private _wfsLayers?: string[];
 
   static createDescriptor(
     baseUrl: string,
@@ -240,8 +223,7 @@ export class AcecardEMSSource implements IRasterSource {
     if (CLICK_HANDLERS[mbSource.id] !== this) {
       CLICK_HANDLERS[mbSource.id] = this;
     }
-    // TODO parse filters from URL and compare with _descriptor if they are different then we need to refresh
-    // If the source is live we need to return true when the timer is drained
+    // TODO If the source is live we need to return true when the timer is drained
     if (!sourceData.url) {
       return false;
     }
@@ -298,7 +280,7 @@ export class AcecardEMSSource implements IRasterSource {
   }
 
   isESSource(): boolean {
-    return true;
+    return this._descriptor.geoColumn !== ''; // Only show bounding box filters when Geo column is selected
   }
   getGeoFieldName(): string {
     return this._descriptor.geoColumn;
@@ -308,7 +290,7 @@ export class AcecardEMSSource implements IRasterSource {
     return this._descriptor.geoColumn;
   }
   async isTimeAware(): Promise<boolean> {
-    return true;
+    return this._descriptor.timeColumn !== ''; // Only show timeslider when we are time aware
   }
 
   isFilterByMapBounds(): boolean {
@@ -317,7 +299,7 @@ export class AcecardEMSSource implements IRasterSource {
   getFieldNames(): string[] {
     return [];
   }
-
+  // FIXME? will we need to change this at runtime? if not move it to the acecard_ems_editor
   renderSourceSettingsEditor(sourceEditorArgs: SourceEditorArgs): ReactElement<any> | null {
     return (
       <AcecardEMSSettingsEditor
@@ -382,41 +364,7 @@ export class AcecardEMSSource implements IRasterSource {
   getUpdateDueToTimeslice(prevMeta: DataRequestMeta, timeslice?: Timeslice): boolean {
     return true;
   }
-  async _fetchCapabilities(service: string) {
-    const queryParams = {
-      version: '1.3.1',
-      request: 'GetCapabilities',
-      service,
-    };
-    const params = new URLSearchParams(queryParams);
-    const resp = await fetch(this._descriptor.baseUrl + '?' + params);
-    if (resp.status >= 400) {
-      throw new Error(`Unable to access ${this._descriptor.baseUrl}`);
-    }
-    const body = await resp.text();
-    return XML_PARSER.parseFromString(body, 'text/xml');
-    // return await parseXmlString(body);
-  }
-  async _fetchWMSLayers() {
-    const capabilities: Document = await this._fetchCapabilities('WMS');
-    const capability = capabilities.getElementsByTagNameNS(
-      'http://www.opengis.net/wms',
-      'Capability'
-    )[0];
-    const names = capability.getElementsByTagNameNS('http://www.opengis.net/wms', 'Name');
 
-    this._wmsLayers = [...names].map((n) => n.textContent || '').filter((s) => s !== '');
-  }
-  async _fetchWFSLayers() {
-    const capabilities: Document = await this._fetchCapabilities('WFS');
-    const list = capabilities.getElementsByTagNameNS(
-      'http://www.opengis.net/wfs',
-      'FeatureTypeList'
-    )[0];
-    this._wfsLayers = [...list.getElementsByTagNameNS('http://www.opengis.net/wfs', 'Name')]
-      .map((n) => n.textContent || '')
-      .filter((s) => s !== null && s !== '');
-  }
   _getGeoCQLFromFilter(filters: Filter[], geoColumn: string) {
     const cqlStatements: string[] = [];
     filters = filters.filter((f) => f.meta.key === geoColumn);
@@ -437,18 +385,6 @@ export class AcecardEMSSource implements IRasterSource {
     return cqlStatements;
   }
   async getUrlTemplate(dataFilters: DataFilters): Promise<string> {
-    if (!this._wmsLayers) {
-      await this._fetchWMSLayers();
-    }
-    if (!this._wfsLayers) {
-      await this._fetchWFSLayers();
-    }
-    if (!this._wmsLayers || !this._wmsLayers.includes(this._descriptor.layer)) {
-      throw Error(`WMS server doesn't have ${this._descriptor.layer} verify WMS configuration`);
-    }
-    if (!this._wfsLayers || !this._wfsLayers.includes(this._descriptor.layer)) {
-      throw Error(`WFS server doesn't have ${this._descriptor.layer} verify WFS configuration`);
-    }
     const { timeslice, timeFilters } = dataFilters;
     let start;
     let stop;

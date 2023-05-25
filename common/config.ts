@@ -9,34 +9,11 @@
 import { schema, TypeOf } from '@kbn/config-schema';
 
 export const mapConfigSchema = schema.object({
-  /* sources: schema.arrayOf(
-    schema.object({
-      wms: schema.string(),
-      wfs: schema.string(),
-      title: schema.string(),
-      layer: schema.string(),
-    }),
-    {
-      defaultValue: [
-        {
-          wms: 'https://mrdata.usgs.gov/services/active-mines',
-          wfs: 'https://mrdata.usgs.gov/services/active-mines',
-          title: 'Mines',
-          layer: 'mineplant',
-        },
-      ],
-    }
-  ),*/
-  titles: schema.arrayOf(schema.string(), { defaultValue: ['Mines', 'Phosphate', 'Energy'] }),
   urls: schema.arrayOf(schema.string(), {
     defaultValue: [
-      'https://mrdata.usgs.gov/services/active-mines',
-      'https://mrdata.usgs.gov/services/phosphate',
-      'https://idena.navarra.es/ogc/ows',
+      'https://mrdata.usgs.gov/services/active-mines', // Note these servers dont actually support the cql polygon filter
+      'https://mrdata.usgs.gov/services/phosphate', // Note these servers dont actually support the cql polygon filter
     ],
-  }),
-  layers: schema.arrayOf(schema.string(), {
-    defaultValue: ['mineplant', 'phosphate', 'IDENA:ENERGI_Lin_Peolico'],
   }),
 });
 

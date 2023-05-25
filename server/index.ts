@@ -17,9 +17,7 @@ import type { AcecardEMSConfig } from '../common/config';
 
 export const config: PluginConfigDescriptor<AcecardEMSConfig> = {
   exposeToBrowser: {
-    titles: true,
     urls: true,
-    layers: true,
   },
   schema: mapConfigSchema,
 };
