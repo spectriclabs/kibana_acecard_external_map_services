@@ -5,7 +5,7 @@
  * in compliance with, at your election, the Elastic License 2.0 or the Server
  * Side Public License, v 1.
  */
-
+import type { Map as MapboxMap } from '@kbn/mapbox-gl';
 import { MapsPluginSetup, MapsPluginStart } from '@kbn/maps-plugin/public/plugin';
 import { ReactElement } from 'react';
 
@@ -22,7 +22,8 @@ export interface KeyPair {
 export type TooltipHandler = (
   wmsBase: string,
   layer: string,
-  keypair: KeyPair[]
+  keypair: KeyPair[],
+  map: MapboxMap
 ) => ReactElement<any> | null;
 export interface AcecardExternalMapsSetupApi {
   registerTootipHandler(tooltipHandler: TooltipHandler): void;

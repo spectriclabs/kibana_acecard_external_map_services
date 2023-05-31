@@ -30,7 +30,7 @@ import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/sour
 import { Filter } from '@kbn/es-query';
 import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
 import { getRotatedViewport, toWKT } from './utils';
-import { ExtraHandlers, KeyPairs } from './tooltips';
+import { Tooltip } from './tooltips';
 
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -216,11 +216,11 @@ export class AcecardEMSSource implements IRasterSource {
       const container = document.createElement('div');
       render(
         <>
-          <KeyPairs pairs={groups[0]} />
-          <ExtraHandlers
+          <Tooltip
             wmsBase={this._descriptor.baseUrl}
             layer={this._descriptor.layer}
             keypair={groups[0]}
+            map={click.target}
           />
         </>,
         container
