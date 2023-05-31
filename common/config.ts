@@ -15,6 +15,7 @@ export const mapConfigSchema = schema.object({
       'https://mrdata.usgs.gov/services/phosphate', // Note these servers dont actually support the cql polygon filter
     ],
   }),
+  enabled: schema.boolean({ defaultValue: false }),
 });
 
 export type AcecardEMSConfig = TypeOf<typeof mapConfigSchema>;

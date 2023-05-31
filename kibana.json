@@ -2,7 +2,7 @@
   "id": "acecardExternalMapServices",
   "version": "1.0.0",
   "kibanaVersion": "kibana",
-  "configPath": ["acecard.maps"],
+  "configPath": ["acecard","maps"],
   "owner": {
     "name": "kibana-gis",
     "githubTeam": "kibana-gis"
