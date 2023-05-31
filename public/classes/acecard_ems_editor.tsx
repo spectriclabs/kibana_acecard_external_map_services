@@ -240,7 +240,6 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
   componentDidMount() {
     this._fetchWFSColumns();
   }
-  // TODO move this into source creation? Is source a live source. Can it support geo queries?
   async _fetchWFSColumns(): Promise<void> {
     const queryParams = {
       version: '2.0.0',

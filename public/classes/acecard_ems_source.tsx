@@ -207,11 +207,6 @@ export class AcecardEMSSource implements IRasterSource {
         group = [];
       }
     });
-    // TODO add hooks for tooltip plugins that allow extendability of the tooltip from other plugins.
-    // Allowing for reuse of this general code for a bunch of layers but specific functionality those that want it
-    // Example: USGS active mines specific plugin
-    // when source is active mines and layer is mine plants we want the ability to put an email button in the tooltip when the state_local is Texas
-    // So users can easily contact the county level in charge
     if (groups.length) {
       const container = document.createElement('div');
       render(
@@ -225,7 +220,6 @@ export class AcecardEMSSource implements IRasterSource {
         </>,
         container
       );
-      // FIX ME react
       new Popup().setDOMContent(container).setLngLat(click.lngLat).addTo(click.target);
     }
   }
