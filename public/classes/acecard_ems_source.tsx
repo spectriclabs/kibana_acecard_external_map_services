@@ -7,7 +7,7 @@
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 import React, { ReactElement } from 'react';
-import { render } from 'react-dom';
+import { render, unmountComponentAtNode } from 'react-dom';
 import { calculateBounds } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
 import type {
@@ -40,7 +40,9 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
   // check if the map still has the source if not remove that click handler
   const sources = Object.keys(CLICK_HANDLERS);
   sources.forEach((s) => {
+    const source = CLICK_HANDLERS[s];
     if (!click.target.getSource(s)) {
+      source.onRemove();
       delete CLICK_HANDLERS[s]; // This isn't working because kibana doesn't clean up the sources when it deletes the layer.
     } else {
       // Hack fix for the source being orphaned
@@ -50,9 +52,9 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
       if (!layers.length) {
         window.console.log('Orphaned source Kibana fix your stuff');
         delete CLICK_HANDLERS[s];
+        source.onRemove();
         return;
       }
-      const source: AcecardEMSSource = CLICK_HANDLERS[s];
       source.onClick(click);
     }
   });
@@ -67,7 +69,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
 
 export class AcecardEMSSource implements IRasterSource {
   static type = 'AcecardEMSSource';
-
+  readonly _popupContainer = document.createElement('div');
   readonly _descriptor: AcecardEMSSourceDescriptor;
 
   static createDescriptor(
@@ -104,10 +106,11 @@ export class AcecardEMSSource implements IRasterSource {
     if (!prevMeta) {
       return false;
     }
-    // Check for time changes
+
     if (
       this._descriptor.timeColumn !== '' &&
-      JSON.stringify(prevMeta.timeslice) !== JSON.stringify(nextRequestMeta.timeslice)
+      (JSON.stringify(prevMeta.timeslice) !== JSON.stringify(nextRequestMeta.timeslice) ||
+        JSON.stringify(prevMeta.timeFilters) !== JSON.stringify(nextRequestMeta.timeFilters))
     ) {
       window.console.log('Need to update because time filter');
       return false; // Time has changed lets remove the tile and update with the correct times
@@ -145,7 +148,10 @@ export class AcecardEMSSource implements IRasterSource {
     }
     return true;
   }
-
+  async onRemove() {
+    // This should trigger componentWillUnmount() so any tooltips that did anything special to the map can remove that
+    unmountComponentAtNode(this._popupContainer);
+  }
   async onClick(click: MapMouseEvent) {
     window.console.log(click);
     const { lng, lat } = click.lngLat;
@@ -208,7 +214,7 @@ export class AcecardEMSSource implements IRasterSource {
       }
     });
     if (groups.length) {
-      const container = document.createElement('div');
+      const container = this._popupContainer;
       render(
         <>
           <Tooltip
