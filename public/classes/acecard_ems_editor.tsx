@@ -147,8 +147,11 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     const services = [];
     for (const url of config.urls) {
       const capabilities: Document = await this._fetchCapabilities(url, 'WMS');
-      const title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
+      let title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
         .textContent as string;
+      if (title === '') {
+        title = url;
+      }
       services.push({ title, capabilities, baseURL: url });
     }
     this.setState({ ...this.state, services });
@@ -281,7 +284,7 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
             placeholder={'Select Time Column To Utilize Time filters'}
             singleSelection={true}
             options={this.state.columns
-              .filter((c: { type: string }) => c.type === 'dateTime')
+              .filter((c: { type: string }) => ['date', 'dateTime'].includes(c.type))
               .map((c: { name: any }) => ({
                 value: c.name,
                 label: c.name,
