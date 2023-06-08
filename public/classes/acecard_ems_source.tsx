@@ -71,6 +71,7 @@ export class AcecardEMSSource implements IRasterSource {
   static type = 'AcecardEMSSource';
   readonly _popupContainer = document.createElement('div');
   readonly _descriptor: AcecardEMSSourceDescriptor;
+  cql_filter: string;
 
   static createDescriptor(
     baseUrl: string,
@@ -89,6 +90,7 @@ export class AcecardEMSSource implements IRasterSource {
 
   constructor(sourceDescriptor: AcecardEMSSourceDescriptor) {
     this._descriptor = sourceDescriptor;
+    this.cql_filter = '';
   }
   async hasLegendDetails(): Promise<boolean> {
     return false;
@@ -190,6 +192,9 @@ export class AcecardEMSSource implements IRasterSource {
       query_layers: this._descriptor.layer,
       bbox: bbox.join(','),
     };
+    if (this.cql_filter.length) {
+      params.cql_filter = this.cql_filter;
+    }
     const url = `${this._descriptor.baseUrl}?${new URLSearchParams(params)}`;
     const featureText = await (await fetch(url)).text();
     window.console.log(featureText);
@@ -247,6 +252,9 @@ export class AcecardEMSSource implements IRasterSource {
     const oldURL = new URL(mbSource.tiles?.[0]);
     const oldParams = Object.fromEntries(oldURL.searchParams.entries());
     window.console.log(currentParams, oldParams);
+    if (currentParams.cql_filter && currentParams.cql_filter !== '') {
+      this.cql_filter = currentParams.cql_filter;
+    }
     return JSON.stringify(currentParams) !== JSON.stringify(oldParams);
   }
 
@@ -438,7 +446,6 @@ export class AcecardEMSSource implements IRasterSource {
     if (cqlStatements.length) {
       params.cql_filter = cqlStatements.join(' AND ');
     }
-
     return `${this._descriptor.baseUrl}?${new URLSearchParams(params)}&bbox={bbox-epsg-3857}`;
     // return NOT_SETUP;
   }
