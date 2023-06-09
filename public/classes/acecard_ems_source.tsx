@@ -393,13 +393,17 @@ export class AcecardEMSSource implements IRasterSource {
     filters = filters.filter((f) => f.meta.key === geoColumn);
     if (filters.length) {
       filters.forEach((filter) => {
+        if (filter.meta.disabled) {
+          return;
+        }
         if (filter.query) {
+          const negate = filter.meta.negate ? 'NOT ' : '';
           filter.query.bool.must.forEach((statement: { geo_shape: any }) => {
             if (statement.geo_shape && statement.geo_shape[geoColumn]) {
               const geo_shape = statement.geo_shape[geoColumn];
               const relation = geo_shape.relation;
               const shape = toWKT(geo_shape.shape);
-              cqlStatements.push(`(${relation}(${geoColumn}, ${shape}))`);
+              cqlStatements.push(`(${negate}${relation}(${geoColumn}, ${shape}))`);
             }
           });
         }
