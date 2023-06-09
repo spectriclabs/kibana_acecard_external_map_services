@@ -55,7 +55,10 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
         source.onRemove();
         return;
       }
-      source.onClick(click);
+      // HACK to check the drawstate (filter creation) they don't pass the map state to the sources
+      if (!click.target._listeners['draw.create'].length) {
+        source.onClick(click);
+      }
     }
   });
 };
@@ -99,6 +102,31 @@ export class AcecardEMSSource implements IRasterSource {
   renderLegendDetails(): ReactElement<any> | null {
     return null;
   }
+
+  isSourceStale(mbSource: RasterTileSource, sourceData: RasterTileSourceData): boolean {
+    window.console.log(mbSource.id);
+    if (!Object.keys(CLICK_HANDLERS).length) {
+      // hack to get click events
+      mbSource.map.on('click', CUSTOM_CLICKHANDLER);
+    }
+    if (CLICK_HANDLERS[mbSource.id] !== this) {
+      CLICK_HANDLERS[mbSource.id] = this;
+    }
+    // TODO If the source is live we need to return true when the timer is drained
+    if (!sourceData.url) {
+      return false;
+    }
+    const currentURL = new URL(sourceData.url);
+    const currentParams = Object.fromEntries(currentURL.searchParams.entries());
+    const oldURL = new URL(mbSource.tiles?.[0]);
+    const oldParams = Object.fromEntries(oldURL.searchParams.entries());
+    window.console.log(currentParams, oldParams);
+    if (currentParams.cql_filter && currentParams.cql_filter !== '') {
+      this.cql_filter = currentParams.cql_filter;
+    }
+    return JSON.stringify(currentParams) !== JSON.stringify(oldParams);
+  }
+
   async canSkipSourceUpdate(
     dataRequest: DataRequest,
     nextRequestMeta: DataRequestMeta
@@ -127,13 +155,17 @@ export class AcecardEMSSource implements IRasterSource {
       const url = new URL(data.url);
       const oldCQL = url.searchParams.get('cql_filter') || '';
       // FIXME If you have two polygon filters and you remove one we don't update. We need to make a CQL to Filters[] and check if the lengths are correct
-      if (oldCQL.includes(newCQL) && oldCQL.includes('POLYGON') && newCQL === '') {
+      if (
+        oldCQL.includes(newCQL) &&
+        (oldCQL.includes('POLYGON') || oldCQL.includes('DWITHIN')) &&
+        newCQL === ''
+      ) {
         window.console.log('KIBANA Polygon filter removed');
         return false;
       }
       if (
         oldCQL.includes(newCQL) &&
-        oldCQL.includes('POLYGON') &&
+        (oldCQL.includes('POLYGON') || oldCQL.includes('DWITHIN')) &&
         this._descriptor.geoColumn === ''
       ) {
         window.console.log('CQL Filter needs to be removed');
@@ -233,29 +265,6 @@ export class AcecardEMSSource implements IRasterSource {
       );
       new Popup().setDOMContent(container).setLngLat(click.lngLat).addTo(click.target);
     }
-  }
-  isSourceStale(mbSource: RasterTileSource, sourceData: RasterTileSourceData): boolean {
-    window.console.log(mbSource.id);
-    if (!Object.keys(CLICK_HANDLERS).length) {
-      // hack to get click events
-      mbSource.map.on('click', CUSTOM_CLICKHANDLER);
-    }
-    if (CLICK_HANDLERS[mbSource.id] !== this) {
-      CLICK_HANDLERS[mbSource.id] = this;
-    }
-    // TODO If the source is live we need to return true when the timer is drained
-    if (!sourceData.url) {
-      return false;
-    }
-    const currentURL = new URL(sourceData.url);
-    const currentParams = Object.fromEntries(currentURL.searchParams.entries());
-    const oldURL = new URL(mbSource.tiles?.[0]);
-    const oldParams = Object.fromEntries(oldURL.searchParams.entries());
-    window.console.log(currentParams, oldParams);
-    if (currentParams.cql_filter && currentParams.cql_filter !== '') {
-      this.cql_filter = currentParams.cql_filter;
-    }
-    return JSON.stringify(currentParams) !== JSON.stringify(oldParams);
   }
 
   cloneDescriptor(): AcecardEMSSourceDescriptor {
@@ -398,12 +407,31 @@ export class AcecardEMSSource implements IRasterSource {
         }
         if (filter.query) {
           const negate = filter.meta.negate ? 'NOT ' : '';
-          filter.query.bool.must.forEach((statement: { geo_shape: any }) => {
+          filter.query.bool.must.forEach((statement: { geo_shape?: any; geo_distance?: any }) => {
+            // HANDLE GEOSHAPE queries
             if (statement.geo_shape && statement.geo_shape[geoColumn]) {
               const geo_shape = statement.geo_shape[geoColumn];
               const relation = geo_shape.relation;
               const shape = toWKT(geo_shape.shape);
               cqlStatements.push(`(${negate}${relation}(${geoColumn}, ${shape}))`);
+            }
+            // HANDLE GEODISTANCE qureies DWITHIN(GEOM,Point(-60.2 46.1),0.05,kilometers)
+            // {"geo_distance":{"distance":"320km","the_geom":[-91.11,37.69]}}
+            if (statement.geo_distance && statement.geo_distance[geoColumn]) {
+              // check if point then make geojson point else use the geojson shape
+              const geo_shape =
+                Array.isArray(statement.geo_distance[geoColumn]) &&
+                statement.geo_distance[geoColumn].length === 2
+                  ? { shape: { type: 'Point', coordinates: statement.geo_distance[geoColumn] } }
+                  : statement.geo_distance[geoColumn];
+              const shape = toWKT(geo_shape.shape);
+              const relation = 'DWITHIN';
+              const match = statement.geo_distance.distance.match(/([\d.]+)(\w+)/);
+              const distance = match[1];
+              const units = match[2] === 'km' ? 'kilometers' : 'meters';
+              cqlStatements.push(
+                `(${negate}${relation}(${geoColumn}, ${shape},${distance},${units}))`
+              );
             }
           });
         }
