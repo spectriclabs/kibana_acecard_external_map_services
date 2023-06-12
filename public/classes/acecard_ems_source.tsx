@@ -29,7 +29,7 @@ import { MapMouseEvent, Popup, RasterTileSource } from 'maplibre-gl';
 import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/source';
 import { Filter } from '@kbn/es-query';
 import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
-import { getRotatedViewport, toWKT } from './utils';
+import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { Tooltip } from './tooltips';
 
 const TILE_SIZE = 256;
@@ -151,18 +151,17 @@ export class AcecardEMSSource implements IRasterSource {
       const newCQL = this._getGeoCQLFromFilter(
         nextRequestMeta.filters || [],
         this._descriptor.geoColumn
-      ).join(' AND ');
+      );
       const url = new URL(data.url);
-      const oldCQL = url.searchParams.get('cql_filter') || '';
+      const oldCQL = parseCQL(url.searchParams.get('cql_filter') || '');
+      const oldSpatial = oldCQL.filter((f) => f.meta.spatial).map((f) => f.cql);
+      const oldTime = oldCQL.filter((f) => !f.meta.spatial).map((f) => f.cql);
       // FIXME If you have two polygon filters and you remove one we don't update. We need to make a CQL to Filters[] and check if the lengths are correct
-      if (
-        oldCQL.includes(newCQL) &&
-        (oldCQL.includes('POLYGON') || oldCQL.includes('DWITHIN')) &&
-        newCQL === ''
-      ) {
-        window.console.log('KIBANA Polygon filter removed');
+      if (oldSpatial.length !== newCQL.length) {
+        window.console.log('KIBANA spatial filter change');
         return false;
       }
+      /*
       if (
         oldCQL.includes(newCQL) &&
         (oldCQL.includes('POLYGON') || oldCQL.includes('DWITHIN')) &&
@@ -174,8 +173,8 @@ export class AcecardEMSSource implements IRasterSource {
       if (!oldCQL.includes(newCQL) && newCQL.length) {
         window.console.log('CQL Filter has been added');
         return false;
-      }
-      if (oldCQL.includes('BETWEEN') && this._descriptor.timeColumn === '') {
+      }*/
+      if (oldTime.includes('BETWEEN') && this._descriptor.timeColumn === '') {
         window.console.log('Time filter column removed');
         return false;
       }
@@ -399,40 +398,48 @@ export class AcecardEMSSource implements IRasterSource {
 
   _getGeoCQLFromFilter(filters: Filter[], geoColumn: string) {
     const cqlStatements: string[] = [];
-    filters = filters.filter((f) => f.meta.key === geoColumn);
+    filters = filters.filter((f) => f.meta.key === geoColumn || f.meta.isMultiIndex);
     if (filters.length) {
       filters.forEach((filter) => {
+        const queries = [];
         if (filter.meta.disabled) {
           return;
         }
-        if (filter.query) {
+        if (filter.meta.isMultiIndex && filter.query) {
+          filter.query.bool.should.forEach((q: any) => queries.push(q));
+        } else if (filter.query) {
+          queries.push(filter.query);
+        }
+        if (queries.length) {
           const negate = filter.meta.negate ? 'NOT ' : '';
-          filter.query.bool.must.forEach((statement: { geo_shape?: any; geo_distance?: any }) => {
-            // HANDLE GEOSHAPE queries
-            if (statement.geo_shape && statement.geo_shape[geoColumn]) {
-              const geo_shape = statement.geo_shape[geoColumn];
-              const relation = geo_shape.relation;
-              const shape = toWKT(geo_shape.shape);
-              cqlStatements.push(`(${negate}${relation}(${geoColumn}, ${shape}))`);
-            }
-            // HANDLE GEODISTANCE qureies DWITHIN(GEOM,Point(-60.2 46.1),0.05,kilometers)
-            // {"geo_distance":{"distance":"320km","the_geom":[-91.11,37.69]}}
-            if (statement.geo_distance && statement.geo_distance[geoColumn]) {
-              // check if point then make geojson point else use the geojson shape
-              const geo_shape =
-                Array.isArray(statement.geo_distance[geoColumn]) &&
-                statement.geo_distance[geoColumn].length === 2
-                  ? { shape: { type: 'Point', coordinates: statement.geo_distance[geoColumn] } }
-                  : statement.geo_distance[geoColumn];
-              const shape = toWKT(geo_shape.shape);
-              const relation = 'DWITHIN';
-              const match = statement.geo_distance.distance.match(/([\d.]+)(\w+)/);
-              const distance = match[1];
-              const units = match[2] === 'km' ? 'kilometers' : 'meters';
-              cqlStatements.push(
-                `(${negate}${relation}(${geoColumn}, ${shape},${distance},${units}))`
-              );
-            }
+          queries.forEach((query) => {
+            query.bool.must.forEach((statement: { geo_shape?: any; geo_distance?: any }) => {
+              // HANDLE GEOSHAPE queries
+              if (statement.geo_shape && statement.geo_shape[geoColumn]) {
+                const geo_shape = statement.geo_shape[geoColumn];
+                const relation = geo_shape.relation;
+                const shape = toWKT(geo_shape.shape);
+                cqlStatements.push(`(${negate}${relation}(${geoColumn}, ${shape}))`);
+              }
+              // HANDLE GEODISTANCE qureies DWITHIN(GEOM,Point(-60.2 46.1),0.05,kilometers)
+              // {"geo_distance":{"distance":"320km","the_geom":[-91.11,37.69]}}
+              if (statement.geo_distance && statement.geo_distance[geoColumn]) {
+                // check if point then make geojson point else use the geojson shape
+                const geo_shape =
+                  Array.isArray(statement.geo_distance[geoColumn]) &&
+                  statement.geo_distance[geoColumn].length === 2
+                    ? { shape: { type: 'Point', coordinates: statement.geo_distance[geoColumn] } }
+                    : statement.geo_distance[geoColumn];
+                const shape = toWKT(geo_shape.shape);
+                const relation = 'DWITHIN';
+                const match = statement.geo_distance.distance.match(/([\d.]+)(\w+)/);
+                const distance = match[1];
+                const units = match[2] === 'km' ? 'kilometers' : 'meters';
+                cqlStatements.push(
+                  `(${negate}${relation}(${geoColumn}, ${shape},${distance},${units}))`
+                );
+              }
+            });
           });
         }
       });

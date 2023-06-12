@@ -116,3 +116,57 @@ export function getRotatedViewport(
     y - xSin - yCos,
   ];
 }
+
+const LPARA = '(';
+const RPARA = ')';
+const patterns = {
+  SPATIAL: /^(BBOX|INTERSECTS|DWITHIN|WITHIN|CONTAINS)/i,
+};
+export const parseCQL = function (text: string) {
+  const blocks = [];
+  let depth = 0;
+  let currentGroup = [];
+  while (text.length) {
+    const token = text[0];
+    text = text.substring(1);
+    if (token === LPARA) {
+      currentGroup.push(token);
+      depth++;
+    } else if (token === RPARA) {
+      depth--;
+      if (depth === 0) {
+        currentGroup.push(token);
+        blocks.push(currentGroup.join(''));
+        currentGroup = [];
+      } else {
+        currentGroup.push(token);
+      }
+    } else {
+      if (depth > 0) {
+        currentGroup.push(token);
+      }
+    }
+  }
+  if (currentGroup.length) {
+    blocks.push(currentGroup.join(''));
+  }
+  const statements = blocks.map((t) => {
+    const cql = (text = t);
+    if (text[0] === LPARA) {
+      text = text.substring(1, text.length - 2);
+    }
+    const negate = text.substring(0, 3).toUpperCase() === 'NOT';
+    if (negate) {
+      text = text.substring(4);
+    }
+    const match = text.match(patterns.SPATIAL);
+    const spatial = match ? true : false;
+    let field = '';
+    if (match) {
+      text = text.substring(match[0].length + 1);
+      field = text.substring(0, text.indexOf(','));
+    }
+    return { meta: { key: field, negate, spatial }, cql };
+  });
+  return statements;
+};
