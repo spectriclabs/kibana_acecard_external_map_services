@@ -56,7 +56,10 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
         return;
       }
       // HACK to check the drawstate (filter creation) Kibana doesn't pass the map state to the sources
-      if (!click.target._listeners['draw.create'].length) {
+      if (
+        click.target._listeners['draw.create'] &&
+        !click.target._listeners['draw.create'].length
+      ) {
         source.onClick(click);
       }
     }
