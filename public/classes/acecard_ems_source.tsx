@@ -164,6 +164,11 @@ export class AcecardEMSSource implements IRasterSource {
         window.console.log('KIBANA spatial filter change');
         return false;
       }
+      for (const index in oldSpatial) {
+        if (oldSpatial[index] !== newCQL[index]) {
+          return false; // Something changed (negating the filter or edit of the DSL)
+        }
+      }
       /*
       if (
         oldCQL.includes(newCQL) &&
@@ -401,7 +406,9 @@ export class AcecardEMSSource implements IRasterSource {
 
   _getGeoCQLFromFilter(filters: Filter[], geoColumn: string) {
     const cqlStatements: string[] = [];
-    filters = filters.filter((f) => f.meta.key === geoColumn || f.meta.isMultiIndex);
+    filters = filters.filter(
+      (f) => f.meta.key === geoColumn || f.meta.isMultiIndex || f.meta.type === 'custom'
+    );
     if (filters.length) {
       filters.forEach((filter) => {
         const queries = [];
