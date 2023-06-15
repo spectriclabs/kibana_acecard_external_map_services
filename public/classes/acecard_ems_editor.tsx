@@ -8,7 +8,7 @@
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 import React, { Component } from 'react';
-import { EuiCallOut, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
+import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
 import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
@@ -229,6 +229,7 @@ interface WFSColumns {
 interface SettingsState {
   selected: string;
   columns: WFSColumns[];
+  nrt: boolean;
 }
 const GEO_COLUMN_TYPES = [
   'PointPropertyType',
@@ -239,6 +240,7 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
   state = {
     selected: '',
     columns: [],
+    nrt: false,
   };
   componentDidMount() {
     this._fetchWFSColumns();
@@ -311,6 +313,17 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
               this.props.handlePropertyChange({ geoColumn: value });
             }}
             selectedOptions={geoSelection}
+          />
+        </EuiFormRow>
+        <EuiFormRow label={'Live'}>
+          <EuiCheckbox
+            id={'nrt_checkbox'}
+            label={'Source is Near Real Time'}
+            checked={this.props.descriptor.nrt}
+            onChange={(e) => {
+              const value = e.target.checked;
+              this.props.handlePropertyChange({ nrt: value });
+            }}
           />
         </EuiFormRow>
       </EuiPanel>

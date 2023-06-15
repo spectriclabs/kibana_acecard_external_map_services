@@ -25,7 +25,7 @@ import type {
   SourceEditorArgs,
 } from '@kbn/maps-plugin/public';
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
-import { MapMouseEvent, Popup, RasterTileSource } from 'maplibre-gl';
+import { MapMouseEvent, Popup, RasterTileSource, Map as MapboxMap } from 'maplibre-gl';
 import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/source';
 import { Filter } from '@kbn/es-query';
 import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
@@ -34,6 +34,19 @@ import { Tooltip } from './tooltips';
 
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
+const LIVE_SOURCE: Record<string, number> = {};
+const TIMERS_MAP: Map<MapboxMap, number> = new Map();
+const setRefreshTimer = (mbMap: MapboxMap) => {
+  if (!TIMERS_MAP.has(mbMap)) {
+    window.console.log('Setting timer');
+    const timeout = window.setTimeout(() => {
+      TIMERS_MAP.delete(mbMap);
+      window.console.log('Sending refresh');
+      mbMap.setBearing(0); // Fun little hack I found to cause kibana maps to resend filters to force a check if sources need to be updated. Doesn't change anything on the map but does what I want.
+    }, 10000);
+    TIMERS_MAP.set(mbMap, timeout);
+  }
+};
 const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
   click: MapMouseEvent & Record<string, unknown>
 ) {
@@ -57,7 +70,7 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
       }
       // HACK to check the drawstate (filter creation) Kibana doesn't pass the map state to the sources
       if (
-        click.target._listeners['draw.create'] &&
+        !click.target._listeners['draw.create'] ||
         !click.target._listeners['draw.create'].length
       ) {
         source.onClick(click);
@@ -71,6 +84,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   name: string;
   timeColumn: string;
   geoColumn: string;
+  nrt: boolean;
 };
 
 export class AcecardEMSSource implements IRasterSource {
@@ -91,6 +105,7 @@ export class AcecardEMSSource implements IRasterSource {
       name,
       timeColumn: '',
       geoColumn: '',
+      nrt: false,
     };
   }
 
@@ -107,7 +122,7 @@ export class AcecardEMSSource implements IRasterSource {
   }
 
   isSourceStale(mbSource: RasterTileSource, sourceData: RasterTileSourceData): boolean {
-    window.console.log(mbSource.id);
+    window.console.log('Stale Check');
     if (!Object.keys(CLICK_HANDLERS).length) {
       // hack to get click events
       mbSource.map.on('click', CUSTOM_CLICKHANDLER);
@@ -115,6 +130,29 @@ export class AcecardEMSSource implements IRasterSource {
     if (CLICK_HANDLERS[mbSource.id] !== this) {
       CLICK_HANDLERS[mbSource.id] = this;
     }
+    if (this._descriptor.nrt) {
+      setRefreshTimer(mbSource.map);
+    }
+    if (this._descriptor.nrt) {
+      const loaded = mbSource.map.style.sourceCaches[mbSource.id].loaded(); // Only refresh Once all tiles are loaded
+      if (!loaded) {
+        return false;
+      }
+
+      const refreshRate = 10 * 1000; // Wait 10 seconds
+      const now = performance.now();
+      if (!LIVE_SOURCE[mbSource.id]) {
+        LIVE_SOURCE[mbSource.id] = now;
+        return true;
+      }
+      if (LIVE_SOURCE[mbSource.id] && LIVE_SOURCE[mbSource.id] + refreshRate < now) {
+        LIVE_SOURCE[mbSource.id] = now;
+        window.console.log('Live Refresh');
+        mbSource.map.style.sourceCaches[mbSource.id].reload();
+        return true;
+      }
+    }
+
     // TODO If the source is live we need to return true when the timer is drained
     if (!sourceData.url) {
       return false;
@@ -123,11 +161,14 @@ export class AcecardEMSSource implements IRasterSource {
     const currentParams = Object.fromEntries(currentURL.searchParams.entries());
     const oldURL = new URL(mbSource.tiles?.[0]);
     const oldParams = Object.fromEntries(oldURL.searchParams.entries());
-    window.console.log(currentParams, oldParams);
     if (currentParams.cql_filter && currentParams.cql_filter !== '') {
       this.cql_filter = currentParams.cql_filter;
     }
-    return JSON.stringify(currentParams) !== JSON.stringify(oldParams);
+    const stale = JSON.stringify(currentParams) !== JSON.stringify(oldParams);
+    if (stale) {
+      window.console.log('Stale rebuilding urltemplate');
+    }
+    return stale;
   }
 
   async canSkipSourceUpdate(
@@ -135,11 +176,14 @@ export class AcecardEMSSource implements IRasterSource {
     nextRequestMeta: DataRequestMeta
   ): Promise<boolean> {
     const prevMeta = dataRequest.getMeta();
-    window.console.log(prevMeta, nextRequestMeta);
     if (!prevMeta) {
       return false;
     }
 
+    if (this._descriptor.nrt) {
+      // We are real time source so we always need to update
+      return false;
+    }
     if (
       this._descriptor.timeColumn !== '' &&
       (JSON.stringify(prevMeta.timeslice) !== JSON.stringify(nextRequestMeta.timeslice) ||
@@ -159,7 +203,6 @@ export class AcecardEMSSource implements IRasterSource {
       const oldCQL = parseCQL(url.searchParams.get('cql_filter') || '');
       const oldSpatial = oldCQL.filter((f) => f.meta.spatial).map((f) => f.cql);
       const oldTime = oldCQL.filter((f) => !f.meta.spatial).map((f) => f.cql);
-      // FIXME If you have two polygon filters and you remove one we don't update. We need to make a CQL to Filters[] and check if the lengths are correct
       if (oldSpatial.length !== newCQL.length) {
         window.console.log('KIBANA spatial filter change');
         return false;
@@ -169,19 +212,6 @@ export class AcecardEMSSource implements IRasterSource {
           return false; // Something changed (negating the filter or edit of the DSL)
         }
       }
-      /*
-      if (
-        oldCQL.includes(newCQL) &&
-        (oldCQL.includes('POLYGON') || oldCQL.includes('DWITHIN')) &&
-        this._descriptor.geoColumn === ''
-      ) {
-        window.console.log('CQL Filter needs to be removed');
-        return false;
-      }
-      if (!oldCQL.includes(newCQL) && newCQL.length) {
-        window.console.log('CQL Filter has been added');
-        return false;
-      }*/
       if (oldTime.includes('BETWEEN') && this._descriptor.timeColumn === '') {
         window.console.log('Time filter column removed');
         return false;
