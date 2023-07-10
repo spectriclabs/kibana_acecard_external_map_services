@@ -370,19 +370,7 @@ export class AcecardEMSSource implements IRasterSource {
   }
   // FIXME? will we need to change this at runtime? if not move it to the acecard_ems_editor
   renderSourceSettingsEditor(sourceEditorArgs: SourceEditorArgs): ReactElement<any> | null {
-    return (
-      <AcecardEMSSettingsEditor
-        layer={this}
-        descriptor={this._descriptor}
-        handlePropertyChange={(settings: Partial<AcecardEMSSourceDescriptor>): void => {
-          // throw new Error('Function not implemented.');
-          const args = Object.entries(settings).map(
-            (v) => ({ propName: v[0], value: v[1] } as OnSourceChangeArgs)
-          );
-          sourceEditorArgs.onChange(...args);
-        }}
-      />
-    );
+    return null;
   }
 
   getApplyGlobalQuery(): boolean {
@@ -446,7 +434,11 @@ export class AcecardEMSSource implements IRasterSource {
           return;
         }
         if (filter.meta.isMultiIndex && filter.query) {
-          filter.query.bool.should.forEach((q: any) => queries.push(q));
+          if (filter.query.bool.should) {
+            filter.query.bool.should.forEach((q: any) => queries.push(q));
+          }else{
+            queries.push(filter.query);
+          }
         } else if (filter.query) {
           if (filter.query.bool.should) {
             filter.query.bool.should.forEach((q: any) => queries.push(q));

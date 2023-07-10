@@ -47,6 +47,9 @@ interface WMSService {
 interface State {
   selectedServer: string;
   selectedLayer: string;
+  timeColumn: string;
+  geoColumn: string;
+  nrt: boolean;
   layers: AcecardEMSLayers[];
   services: WMSService[];
 }
@@ -55,6 +58,9 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
   state = {
     selectedServer: '',
     selectedLayer: '',
+    timeColumn: '',
+    geoColumn: '',
+    nrt: false,
     layers: [] as AcecardEMSLayers[],
     services: [] as WMSService[],
   };
@@ -175,6 +181,32 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
         });
       }
     }
+    if (this.props.isOnFinalStep) {
+      // We have advanced and can now create the layer
+      const selection = layers.find((l) => l.layer === this.state.selectedLayer) || {
+        title: '',
+      };
+      const layerDescriptor = {
+        id: htmlIdGenerator()(),
+        type: LAYER_TYPE.RASTER_TILE,
+        sourceDescriptor: {
+          type: AcecardEMSSource.type,
+          baseUrl: this.state.selectedServer,
+          layer: this.state.selectedLayer,
+          name: selection.title,
+          timeColumn: this.state.timeColumn,
+          geoColumn: this.state.geoColumn,
+          nrt: this.state.nrt,
+        } as AcecardEMSSourceDescriptor,
+        style: {
+          type: 'RASTER',
+        },
+        alpha: 1,
+      };
+      this.props.previewLayers([layerDescriptor]);
+      // trigger layer preview and move to next step (create the layer because some sources don't like to be displayed with wide open time filters)
+      this.props.advanceToNextStep();
+    }
     return (
       <EuiPanel>
         <EuiCallOut title="ACECARD EMS">
@@ -201,12 +233,28 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                 onChange={(e) => {
                   const value = e.length ? e[0].value || '' : '';
                   this.setState({ selectedLayer: value });
-                  const layer = layers.find((l) => l.layer === value);
-                  if (layer) {
-                    this.updatePreview(layer);
-                  }
+                  this.props.enableNextBtn();
                 }}
                 selectedOptions={selectedLayerOptions}
+              />
+            </EuiFormRow>
+          ) : null}
+          {selectedLayer !== '' ? (
+            <EuiFormRow label={'Layer Settings'}>
+              <AcecardEMSSettingsEditor
+                handlePropertyChange={(settings) => {
+                  this.setState({ ...this.state, ...settings });
+                }}
+                descriptor={
+                  {
+                    baseUrl: this.state.selectedServer,
+                    layer: this.state.selectedLayer,
+                    name: "doesn't matter",
+                    timeColumn: this.state.timeColumn,
+                    geoColumn: this.state.geoColumn,
+                    nrt: this.state.nrt,
+                  } as AcecardEMSSourceDescriptor
+                }
               />
             </EuiFormRow>
           ) : null}
@@ -218,7 +266,6 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
 
 interface Props {
   handlePropertyChange: (settings: Partial<AcecardEMSSourceDescriptor>) => void;
-  layer: AcecardEMSSource;
   descriptor: AcecardEMSSourceDescriptor;
 }
 interface WFSColumns {

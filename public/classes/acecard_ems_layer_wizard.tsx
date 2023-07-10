@@ -17,6 +17,12 @@ export const acecardEMSLayerWizard: LayerWizard = {
   categories: [LAYER_WIZARD_CATEGORY.REFERENCE],
   title: 'Acecard External Map Services',
   description: 'Layer that connects to other services for mapping display in acecard',
+  prerequisiteSteps: [
+    {
+      id: 'CREATE_ACECARD_MAPS',
+      label: 'Complete Layer Setup',
+    },
+  ],
   icon: '',
   order: 100,
   renderWizard: (renderWizardArguments: RenderWizardArguments) => {
