@@ -436,7 +436,7 @@ export class AcecardEMSSource implements IRasterSource {
         if (filter.meta.isMultiIndex && filter.query) {
           if (filter.query.bool.should) {
             filter.query.bool.should.forEach((q: any) => queries.push(q));
-          }else{
+          } else {
             queries.push(filter.query);
           }
         } else if (filter.query) {
