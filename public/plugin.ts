@@ -16,7 +16,7 @@ import { AcecardEMSSource } from './classes/acecard_ems_source';
 import { acecardEMSLayerWizard } from './classes/acecard_ems_layer_wizard';
 import { PLUGIN_ID, PLUGIN_NAME } from '../common';
 import { AcecardEMSConfig } from '../common/config';
-import { registerTootipHandler, setConfig } from './config';
+import { registerTootipHandler, setConfig, setStartServices } from './config';
 
 export class AcecardExternalMapsSourcePlugin
   implements
@@ -59,6 +59,7 @@ export class AcecardExternalMapsSourcePlugin
 
   public start(core: CoreStart, plugins: AcecardExternalMapsSourcePluginStart) {
     const config = this._initializerContext.config.get<AcecardEMSConfig>();
+    setStartServices(core, plugins);
     setConfig(config);
   }
 

@@ -26,11 +26,10 @@ import type {
 } from '@kbn/maps-plugin/public';
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
 import { MapMouseEvent, Popup, RasterTileSource, Map as MapboxMap } from 'maplibre-gl';
-import { OnSourceChangeArgs } from '@kbn/maps-plugin/public/classes/sources/source';
 import { Filter } from '@kbn/es-query';
-import { AcecardEMSSettingsEditor } from './acecard_ems_editor';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { Tooltip } from './tooltips';
+import { getIsDarkMode } from '../config';
 
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -300,7 +299,13 @@ export class AcecardEMSSource implements IRasterSource {
         </>,
         container
       );
-      new Popup().setDOMContent(container).setLngLat(click.lngLat).addTo(click.target);
+      const popupClasses = getIsDarkMode()
+        ? 'acecard-map-popup acecard-map-popup-dark'
+        : 'acecard-map-popup';
+      new Popup({ className: popupClasses })
+        .setDOMContent(container)
+        .setLngLat(click.lngLat)
+        .addTo(click.target);
     }
   }
 

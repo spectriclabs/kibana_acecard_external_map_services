@@ -10,8 +10,10 @@
 /* eslint-disable react/prefer-stateless-function */
 import React, { Component } from 'react';
 import type { Map as MapboxMap } from '@kbn/mapbox-gl';
+import { KibanaThemeProvider } from '@kbn/kibana-react-plugin/public';
+import { EuiPanel } from '@elastic/eui';
 import type { KeyPair } from '../types';
-import { tooltipHandlers } from '../config';
+import { tooltipHandlers, getTheme } from '../config';
 interface Props {
   pairs: KeyPair[];
 }
@@ -24,7 +26,9 @@ export class KeyPairs extends Component<Props> {
         {pairs.map((p, i) => {
           return (
             <div>
-              {p[0]} = {p[1]}
+              <p>
+                {p[0]} = {p[1]}
+              </p>
             </div>
           );
         })}
@@ -49,12 +53,23 @@ export class ExtraHandlers extends Component<ExtraHandlersProps> {
 export class Tooltip extends Component<ExtraHandlersProps> {
   render() {
     const { wmsBase, layer, keypair, map } = this.props;
+    const theme = getTheme();
     const handlers = tooltipHandlers
       .map((handler) => handler(wmsBase, layer, keypair, map))
       .filter((h) => h !== null);
     if (handlers.length) {
-      return <>{handlers}</>;
+      return (
+        <KibanaThemeProvider theme$={theme.theme$}>
+          <EuiPanel>{handlers}</EuiPanel>
+        </KibanaThemeProvider>
+      );
     }
-    return <KeyPairs pairs={keypair} />; // TODO Should we always render the keypairs returned by the geo server? maybe as an accordian
+    return (
+      <KibanaThemeProvider theme$={theme.theme$}>
+        <EuiPanel>
+          <KeyPairs pairs={keypair} />
+        </EuiPanel>
+      </KibanaThemeProvider>
+    ); // TODO Should we always render the keypairs returned by the geo server? maybe as an accordian
   }
 }
