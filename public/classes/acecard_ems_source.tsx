@@ -122,7 +122,7 @@ export class AcecardEMSSource implements IRasterSource {
 
   isSourceStale(mbSource: RasterTileSource, sourceData: RasterTileSourceData): boolean {
     window.console.log('Stale Check');
-    if (!Object.keys(CLICK_HANDLERS).length) {
+    if (mbSource.map._listeners.click.indexOf(CUSTOM_CLICKHANDLER) === -1) {
       // hack to get click events
       mbSource.map.on('click', CUSTOM_CLICKHANDLER);
     }
