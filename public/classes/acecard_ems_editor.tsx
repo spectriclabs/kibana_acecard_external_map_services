@@ -292,6 +292,15 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
   componentDidMount() {
     this._fetchWFSColumns();
   }
+  componentDidUpdate(prevProps: Props) {
+    if (
+      prevProps.descriptor.baseUrl !== this.props.descriptor.baseUrl ||
+      prevProps.descriptor.layer !== this.props.descriptor.layer
+    ) {
+      this._fetchWFSColumns();
+      this.props.handlePropertyChange({ timeColumn: '', geoColumn: '', nrt: false });
+    }
+  }
   async _fetchWFSColumns(): Promise<void> {
     const queryParams = {
       version: '2.0.0',
