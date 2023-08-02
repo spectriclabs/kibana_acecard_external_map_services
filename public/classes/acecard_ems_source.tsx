@@ -10,6 +10,8 @@ import React, { ReactElement } from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import { calculateBounds } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
+import { Style } from 'geostyler-style';
+import SLDParser from 'geostyler-sld-parser';
 import type {
   AbstractSourceDescriptor,
   Attribution,
@@ -30,7 +32,7 @@ import { Filter } from '@kbn/es-query';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { Tooltip } from './tooltips';
 import { getIsDarkMode } from '../config';
-
+const sldParser = new SLDParser();
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
 const LIVE_SOURCE: Record<string, number> = {};
@@ -84,6 +86,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   timeColumn: string;
   geoColumn: string;
   nrt: boolean;
+  sldBody?: Style;
 };
 
 export class AcecardEMSSource implements IRasterSource {
@@ -520,9 +523,13 @@ export class AcecardEMSSource implements IRasterSource {
       width: TILE_SIZE,
       height: TILE_SIZE,
       layers: this._descriptor.layer,
-      // CQL TIME FILTER TIED TO GLOBAL TIME
-      // CQL BBOX FILTER TIED to geo filters
     };
+    if (this._descriptor.sldBody) {
+      params.style = 'style_sld_body';
+      const { output } = await sldParser.writeStyle(this._descriptor.sldBody);
+
+      params.sld_body = output;
+    }
     if (cqlStatements.length) {
       params.cql_filter = cqlStatements.join(' AND ');
     }

@@ -16,6 +16,9 @@ export const mapConfigSchema = schema.object({
     ],
   }),
   enabled: schema.boolean({ defaultValue: false }),
+  customSymbolLabels: schema.arrayOf(schema.string(), {
+    defaultValue: ['A', 'AH', 'S', 'SS', 'F'],
+  }),
 });
 
 export type AcecardEMSConfig = TypeOf<typeof mapConfigSchema>;

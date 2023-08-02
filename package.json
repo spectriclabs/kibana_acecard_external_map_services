@@ -1,12 +1,16 @@
 {
-    "name": "kibana_acecard_external_maps_service",
-    "version": "0.0.0",
-    "private": true,
-    "scripts": {
-      "bootstrap": "yarn kbn bootstrap && yarn install",
-      "build": "yarn plugin-helpers build",
-      "dev": "yarn plugin-helpers dev",
-      "plugin-helpers": "node ../../scripts/plugin_helpers",
-      "kbn": "node ../../scripts/kbn"
-    }
+  "name": "kibana_acecard_external_maps_service",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "bootstrap": "yarn kbn bootstrap && yarn install",
+    "build": "yarn plugin-helpers build",
+    "dev": "yarn plugin-helpers dev",
+    "plugin-helpers": "node ../../scripts/plugin_helpers",
+    "kbn": "node ../../scripts/kbn"
+  },
+  "dependencies": {
+    "geostyler-sld-parser": "^5.1.0",
+    "geostyler-style": "^7.3.1"
   }
+}
