@@ -8,12 +8,20 @@
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 import React, { Component } from 'react';
-import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
+import {
+  EuiButton,
+  EuiCallOut,
+  EuiCheckbox,
+  EuiFormRow,
+  EuiPanel,
+  htmlIdGenerator,
+} from '@elastic/eui';
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
 import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
 import { AcecardEMSSource, AcecardEMSSourceDescriptor } from './acecard_ems_source';
 import { getConfig } from '../config';
+import { SldStyleEditor } from './sld_styler';
 
 function titlesToOptions(titles: string[]): Array<EuiComboBoxOptionOption<string>> {
   return titles.map((title) => {
@@ -50,6 +58,7 @@ interface State {
   timeColumn: string;
   geoColumn: string;
   nrt: boolean;
+  loading: boolean;
   layers: AcecardEMSLayers[];
   services: WMSService[];
 }
@@ -61,6 +70,8 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     timeColumn: '',
     geoColumn: '',
     nrt: false,
+    sldBody: undefined,
+    loading: true,
     layers: [] as AcecardEMSLayers[],
     services: [] as WMSService[],
   };
@@ -160,12 +171,15 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
       }
       services.push({ title, capabilities, baseURL: url });
     }
-    this.setState({ ...this.state, services });
+    this.setState({ ...this.state, services, loading: false });
   }
   render() {
     const selectedServerOptions: Array<EuiComboBoxOptionOption<string>> = [];
     const selectedLayerOptions: Array<EuiComboBoxOptionOption<string>> = [];
-    const { selectedServer, layers, selectedLayer, services } = this.state;
+    const { selectedServer, layers, selectedLayer, services, loading } = this.state;
+    if (loading) {
+      return <>Loading Layers From External Sources</>;
+    }
     if (selectedServer !== '') {
       selectedServerOptions.push({
         value: selectedServer,
@@ -197,6 +211,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
           timeColumn: this.state.timeColumn,
           geoColumn: this.state.geoColumn,
           nrt: this.state.nrt,
+          sldBody: this.state.sldBody,
         } as AcecardEMSSourceDescriptor,
         style: {
           type: 'RASTER',
@@ -245,6 +260,30 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                 handlePropertyChange={(settings) => {
                   this.setState({ ...this.state, ...settings });
                 }}
+                preview={() => {
+                  const selection = layers.find((l) => l.layer === this.state.selectedLayer) || {
+                    title: '',
+                  };
+                  const layerDescriptor = {
+                    id: htmlIdGenerator()(),
+                    type: LAYER_TYPE.RASTER_TILE,
+                    sourceDescriptor: {
+                      type: AcecardEMSSource.type,
+                      baseUrl: this.state.selectedServer,
+                      layer: this.state.selectedLayer,
+                      name: selection.title,
+                      timeColumn: this.state.timeColumn,
+                      geoColumn: this.state.geoColumn,
+                      nrt: this.state.nrt,
+                      sldBody: this.state.sldBody,
+                    } as AcecardEMSSourceDescriptor,
+                    style: {
+                      type: 'RASTER',
+                    },
+                    alpha: 1,
+                  };
+                  this.props.previewLayers([layerDescriptor]);
+                }}
                 descriptor={
                   {
                     baseUrl: this.state.selectedServer,
@@ -266,10 +305,15 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
 
 interface Props {
   handlePropertyChange: (settings: Partial<AcecardEMSSourceDescriptor>) => void;
+  preview: () => void;
   descriptor: AcecardEMSSourceDescriptor;
 }
-interface WFSColumns {
+export interface WFSColumns {
+  localType: string;
+  maxOccurs: number;
+  minOccurs: number;
   name: string;
+  nillable: boolean;
   type: string;
 }
 
@@ -277,17 +321,35 @@ interface SettingsState {
   selected: string;
   columns: WFSColumns[];
   nrt: boolean;
+  enablePreview: boolean;
 }
 const GEO_COLUMN_TYPES = [
   'PointPropertyType',
   'MultiCurvePropertyType',
   'MultiSurfacePropertyType',
+  'MultiPolygon',
+  'Point',
+  'MultiLineString',
+  'Geometry',
+  'Polygon',
+  'LineString',
+  'MultiPoint',
 ];
+export const POINT_TYPES = ['PointPropertyType', 'Point', 'MultiPoint'];
+export const POLYGON_TYPES = [
+  'MultiCurvePropertyType',
+  'MultiSurfacePropertyType',
+  'MultiPolygon',
+  'Geometry',
+  'Polygon',
+];
+const TIME_COLUMN_TYPES = ['date', 'dateTime', 'date-time'];
 export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
   state = {
     selected: '',
     columns: [],
     nrt: false,
+    enablePreview: false,
   };
   componentDidMount() {
     this._fetchWFSColumns();
@@ -307,23 +369,15 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
       request: 'DescribeFeatureType',
       service: 'WFS',
       typeName: this.props.descriptor.layer,
+      outputFormat: 'application/json',
     };
     const params = new URLSearchParams(queryParams);
     const resp = await fetch(this.props.descriptor.baseUrl + '?' + params);
     if (resp.status >= 400) {
       throw new Error(`Unable to access ${this.props.descriptor.baseUrl}`);
     }
-    const body = await resp.text();
-    const xml = XML_PARSER.parseFromString(body, 'text/xml');
-    const elements = xml.getElementsByTagNameNS('http://www.w3.org/2001/XMLSchema', 'element');
-    let columns = [...elements].map((e) =>
-      Object.fromEntries([...e.attributes].map((a) => [a.name, a.value]))
-    ) as unknown as WFSColumns[];
-    columns = columns.map((c) => {
-      c.type = c.type.replace('xsd:', '');
-      c.type = c.type.replace('gml:', '');
-      return c;
-    });
+    const json = await resp.json();
+    const columns: WFSColumns[] = json.featureTypes[0].properties;
     this.setState({ ...this.state, columns });
   }
   render() {
@@ -342,8 +396,8 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
             placeholder={'Select Time Column To Utilize Time filters'}
             singleSelection={true}
             options={this.state.columns
-              .filter((c: { type: string }) => ['date', 'dateTime'].includes(c.type))
-              .map((c: { name: any }) => ({
+              .filter((c: WFSColumns) => TIME_COLUMN_TYPES.includes(c.localType))
+              .map((c: WFSColumns) => ({
                 value: c.name,
                 label: c.name,
               }))}
@@ -359,8 +413,8 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
             placeholder={'Select Geo Column to Utilize Geo filters'}
             singleSelection={true}
             options={this.state.columns
-              .filter((c: { type: string }) => GEO_COLUMN_TYPES.includes(c.type))
-              .map((c: { name: any }) => ({
+              .filter((c: WFSColumns) => GEO_COLUMN_TYPES.includes(c.localType))
+              .map((c: WFSColumns) => ({
                 value: c.name,
                 label: c.name,
               }))}
@@ -382,6 +436,25 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
             }}
           />
         </EuiFormRow>
+        <EuiFormRow label={'Style'}>
+          <SldStyleEditor
+            columns={this.state.columns}
+            layerName={this.props.descriptor.layer}
+            setStyle={(style) => {
+              this.props.handlePropertyChange({ sldBody: style });
+              this.setState({ ...this.state, enablePreview: true });
+            }}
+          />
+        </EuiFormRow>
+        <EuiButton
+          disabled={!this.state.enablePreview} // If we don't have a column we cant add a filter
+          onClick={() => {
+            this.props.preview();
+            this.setState({ ...this.state, enablePreview: false });
+          }}
+        >
+          Preview
+        </EuiButton>
       </EuiPanel>
     );
   }
