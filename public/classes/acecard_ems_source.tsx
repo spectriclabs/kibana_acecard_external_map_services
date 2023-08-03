@@ -55,6 +55,7 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
   const sources = Object.keys(CLICK_HANDLERS);
   sources.forEach((s) => {
     const source = CLICK_HANDLERS[s];
+    // FIXME make it so you have a layer selector step if there are multiple layers that return data from the click
     if (!click.target.getSource(s)) {
       source.onRemove();
       delete CLICK_HANDLERS[s]; // This isn't working because kibana doesn't clean up the sources when it deletes the layer.
