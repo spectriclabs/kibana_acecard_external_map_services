@@ -440,21 +440,13 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
           <SldStyleEditor
             columns={this.state.columns}
             layerName={this.props.descriptor.layer}
+            preview={this.props.preview}
             setStyle={(style) => {
               this.props.handlePropertyChange({ sldBody: style });
               this.setState({ ...this.state, enablePreview: true });
             }}
           />
         </EuiFormRow>
-        <EuiButton
-          disabled={!this.state.enablePreview} // If we don't have a column we cant add a filter
-          onClick={() => {
-            this.props.preview();
-            this.setState({ ...this.state, enablePreview: false });
-          }}
-        >
-          Preview
-        </EuiButton>
       </EuiPanel>
     );
   }
