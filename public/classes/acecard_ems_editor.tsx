@@ -8,7 +8,14 @@
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 import React, { Component } from 'react';
-import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
+import {
+  EuiButton,
+  EuiCallOut,
+  EuiCheckbox,
+  EuiFormRow,
+  EuiPanel,
+  htmlIdGenerator,
+} from '@elastic/eui';
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
 import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
@@ -253,6 +260,30 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                 handlePropertyChange={(settings) => {
                   this.setState({ ...this.state, ...settings });
                 }}
+                preview={() => {
+                  const selection = layers.find((l) => l.layer === this.state.selectedLayer) || {
+                    title: '',
+                  };
+                  const layerDescriptor = {
+                    id: htmlIdGenerator()(),
+                    type: LAYER_TYPE.RASTER_TILE,
+                    sourceDescriptor: {
+                      type: AcecardEMSSource.type,
+                      baseUrl: this.state.selectedServer,
+                      layer: this.state.selectedLayer,
+                      name: selection.title,
+                      timeColumn: this.state.timeColumn,
+                      geoColumn: this.state.geoColumn,
+                      nrt: this.state.nrt,
+                      sldBody: this.state.sldBody,
+                    } as AcecardEMSSourceDescriptor,
+                    style: {
+                      type: 'RASTER',
+                    },
+                    alpha: 1,
+                  };
+                  this.props.previewLayers([layerDescriptor]);
+                }}
                 descriptor={
                   {
                     baseUrl: this.state.selectedServer,
@@ -274,6 +305,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
 
 interface Props {
   handlePropertyChange: (settings: Partial<AcecardEMSSourceDescriptor>) => void;
+  preview: () => void;
   descriptor: AcecardEMSSourceDescriptor;
 }
 export interface WFSColumns {
@@ -289,6 +321,7 @@ interface SettingsState {
   selected: string;
   columns: WFSColumns[];
   nrt: boolean;
+  enablePreview: boolean;
 }
 const GEO_COLUMN_TYPES = [
   'PointPropertyType',
@@ -316,6 +349,7 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
     selected: '',
     columns: [],
     nrt: false,
+    enablePreview: false,
   };
   componentDidMount() {
     this._fetchWFSColumns();
@@ -408,9 +442,19 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
             layerName={this.props.descriptor.layer}
             setStyle={(style) => {
               this.props.handlePropertyChange({ sldBody: style });
+              this.setState({ ...this.state, enablePreview: true });
             }}
           />
         </EuiFormRow>
+        <EuiButton
+          disabled={!this.state.enablePreview} // If we don't have a column we cant add a filter
+          onClick={() => {
+            this.props.preview();
+            this.setState({ ...this.state, enablePreview: false });
+          }}
+        >
+          Preview
+        </EuiButton>
       </EuiPanel>
     );
   }
