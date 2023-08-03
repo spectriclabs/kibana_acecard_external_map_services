@@ -22,7 +22,6 @@ import {
 } from 'geostyler-style';
 import { ToolbarButton } from '@kbn/kibana-react-plugin/public';
 
-import SLDParser from 'geostyler-sld-parser';
 import {
   EuiButton,
   EuiComboBox,
@@ -38,8 +37,14 @@ import { getConfig } from '../config';
 import { WFSColumns } from './acecard_ems_editor';
 
 const WELL_KNOWN_NAMES = ['circle', 'square', 'triangle', 'star', 'cross', 'x'];
-const CUSTOM_SYMBOLS = ['A', 'AH', 'S', 'SS', 'F'];
-const parser = new SLDParser();
+const CUSTOM_SYMBOLS = [
+  'wkt://POLYGON((-0.15 -0.25, -0.15 0.25, 0.15 0.25, 0.15 -0.25, 0.25 -0.25, 0.25 0.35, -0.25 0.35, -0.25 -0.25, -0.25 -0.25, -0.15 -0.25))',
+  'wkt://POLYGON((-0.15 -0.25, 0 0.25,0.15 -0.25,0.25 -0.25,0.0 0.45,-0.25 -0.25,-0.15 -0.25))',
+  'wkt://POLYGON((-0.15 0.25, -0.15 -0.25, 0.15 -0.25,0.15 0.25,0.25 0.25, 0.25 -0.35,-0.25 -0.35,-0.25 0.25,-0.25 0.25))',
+  'wkt://MULTILINESTRING((-0.25 0.25, -0.25 -0.25, 0.25 -0.25,0.25 0.25), (-0.20 0.30,0.2 0.30))', // FIXME change me to a multi polygon because the fill on line strings creates undesired shape
+  'wkt://POLYGON((-0.15 0.15, -0.15 -0.25, 0.15 -0.25,0.15 0.25,0.25 0.25, 0.25 -0.35,-0.25 -0.35,-0.25 0.25,0.15 0.25,0.15 0.15,-0.15 0.15))',
+];
+
 interface Props {
   setStyle: (style: any) => void;
   layerName: string;
