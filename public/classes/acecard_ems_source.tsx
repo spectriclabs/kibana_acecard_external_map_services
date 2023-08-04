@@ -75,7 +75,9 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
         !click.target._listeners['draw.create'] ||
         !click.target._listeners['draw.create'].length
       ) {
-        source.onClick(click);
+        if(layers[0].visibility === "visible"){ //Ensure Layer is visible
+          source.onClick(click);
+        }
       }
     }
   });
