@@ -16,7 +16,6 @@ import SLDParser from 'geostyler-sld-parser';
 import type {
   AbstractSourceDescriptor,
   Attribution,
-  DataFilters,
   DataRequestMeta,
   SourceRequestMeta,
   Timeslice,
