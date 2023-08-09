@@ -15,3 +15,11 @@
     border-top-color: #1d1e24;
     border-bottom-color: #1d1e24;
 }
+
+.acecard-map-popup .euiPanel {
+        div {
+    max-height: 200px;
+    overflow: auto;
+    }
+
+}
