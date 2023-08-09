@@ -31,6 +31,7 @@ import {
   EuiPanel,
   EuiIcon,
   EuiFieldText,
+  EuiAccordion,
 } from '@elastic/eui';
 import { ColorPicker } from './components/color_picker';
 import { getConfig } from '../config';
@@ -48,11 +49,14 @@ const CUSTOM_SYMBOLS = [
 interface Props {
   setStyle: (style: any) => void;
   layerName: string;
+  preview: () => void;
   columns: WFSColumns[];
 }
 
 interface State {
   style: Style;
+  enablePreview: boolean;
+  accordion:number;
 }
 
 const TextRender = ({
@@ -314,15 +318,13 @@ const RuleRender = ({
   rule,
   onChange,
   columns,
-  title,
 }: {
   rule: Rule;
   onChange: any;
   columns: WFSColumns[];
-  title: string;
 }) => {
   return (
-    <EuiFormRow label={title}>
+    <EuiFormRow>
       <EuiPanel color="primary">
         <EuiFlexGroup>
           <EuiFlexItem grow={true}>
@@ -449,34 +451,54 @@ export const SldStyleEditor: React.FC<Props> = ({
   setStyle,
   layerName,
   columns,
+  preview,
 }: Props): JSX.Element => {
-  const [state, setState] = useState<State>({ style: { name: layerName, rules: [] } });
+  const [state, setState] = useState<State>({ style: { name: layerName, rules: [] },enablePreview:false,accordion:0 });
   return (
     <div>
+      {state.style.rules.map((rule, i) => (
+        <EuiAccordion id ={`rule-${i}`} 
+        element="fieldset" 
+        buttonContent={`Style Rule #${i+1}`}
+        forceState={state.accordion===i?"open":"closed"} onToggle={(isOpen)=>{
+          if(isOpen){
+            setState({...state,accordion:i})
+          }
+        }}>
+        <RuleRender
+          columns={columns}
+          rule={rule}
+          onChange={(newRule: Rule) => {
+            const rules = [...state.style.rules];
+            rules[i] = newRule;
+            setStyle({ ...state.style, rules: [...rules] });
+            setState({ ...state,style: { ...state.style, rules: [...rules]},enablePreview:true  });
+          }}
+        />
+        </EuiAccordion>
+      ))}
+      <EuiPanel>
       <EuiButton
         onClick={() => {
           state.style.rules.push({
             name: 'Rule_' + uuid.v4(),
             symbolizers: [],
           });
-          setState({ style: { ...state.style, rules: [...state.style.rules] } });
+          setState({...state, style: { ...state.style, rules: [...state.style.rules] },accordion:state.style.rules.length -1 });
         }}
       >
         Add Custom Style Rule
       </EuiButton>
-      {state.style.rules.map((rule, i) => (
-        <RuleRender
-          columns={columns}
-          rule={rule}
-          title={`Style Rule #${i + 1}`}
-          onChange={(newRule: Rule) => {
-            const rules = [...state.style.rules];
-            rules[i] = newRule;
-            setStyle({ ...state.style, rules: [...rules] });
-            setState({ style: { ...state.style, rules: [...rules] } });
+      <EuiButton
+          disabled={!state.enablePreview} // If we don't have a column we cant add a filter
+          onClick={() => {
+            preview();
+            setState({ ...state, enablePreview: false });
           }}
-        />
-      ))}
+        >
+          Preview
+        </EuiButton>
+        </EuiPanel>
     </div>
   );
 };
