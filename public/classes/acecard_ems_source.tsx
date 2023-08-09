@@ -8,6 +8,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import React, { ReactElement } from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
+import { toCql } from "./ast"
 import { calculateBounds } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
 import { Style } from 'geostyler-style';
@@ -17,6 +18,7 @@ import type {
   Attribution,
   DataFilters,
   DataRequestMeta,
+  SourceRequestMeta,
   Timeslice,
 } from '@kbn/maps-plugin/common/descriptor_types';
 import type {
@@ -28,7 +30,7 @@ import type {
 } from '@kbn/maps-plugin/public';
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
 import { MapMouseEvent, Popup, RasterTileSource, Map as MapboxMap } from 'maplibre-gl';
-import { Filter } from '@kbn/es-query';
+import { Filter, Query, fromKueryExpression } from '@kbn/es-query';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { Tooltip } from './tooltips';
 import { getIsDarkMode } from '../config';
@@ -171,6 +173,7 @@ export class AcecardEMSSource implements IRasterSource {
       this.cql_filter = currentParams.cql_filter;
     }
     const stale = JSON.stringify(currentParams) !== JSON.stringify(oldParams);
+
     if (stale) {
       window.console.log('Stale rebuilding urltemplate');
     }
@@ -185,7 +188,13 @@ export class AcecardEMSSource implements IRasterSource {
     if (!prevMeta) {
       return false;
     }
-
+    //Check if the layer specific filters have changed
+    if(prevMeta.sourceQuery && nextRequestMeta.sourceQuery && 
+      (JSON.stringify(prevMeta.sourceQuery)!==JSON.stringify(nextRequestMeta.sourceQuery)
+      )){
+        console.log("Updating because Layer filters changed")
+      return false
+    }
     if (this._descriptor.nrt) {
       // We are real time source so we always need to update
       return false;
@@ -205,6 +214,7 @@ export class AcecardEMSSource implements IRasterSource {
         nextRequestMeta.filters || [],
         this._descriptor.geoColumn
       );
+
       const url = new URL(data.url);
       const oldCQL = parseCQL(url.searchParams.get('cql_filter') || '');
       const oldSpatial = oldCQL.filter((f) => f.meta.spatial).map((f) => f.cql);
@@ -494,9 +504,23 @@ export class AcecardEMSSource implements IRasterSource {
     }
     return cqlStatements;
   }
+  _getCQLFromSourceFilter(sourceQuery:Query | undefined) {
 
+        /*
+    Convert source query to CQL
+    {
+        "query": "name:'mil'",
+        "language": "kuery"
+    }
+    */
+    if(sourceQuery && sourceQuery.language === "kuery"){
+      const kueryNode = fromKueryExpression(sourceQuery.query);
+      return `(${toCql(kueryNode)})`
+    }
+    return ""
+  }
   // FIXME create CQL filter from DSL filter dataFilters.sourceQuery they patched this is 8.8.0 to pass it down correctly.
-  async getUrlTemplate(dataFilters: DataFilters): Promise<string> {
+  async getUrlTemplate(dataFilters: SourceRequestMeta): Promise<string> {
     const { timeslice, timeFilters } = dataFilters;
     let start;
     let stop;
@@ -516,6 +540,9 @@ export class AcecardEMSSource implements IRasterSource {
 
     if (this._descriptor.timeColumn !== '' && start && stop) {
       cqlStatements.push(`(${this._descriptor.timeColumn} BETWEEN ${start} AND ${stop})`);
+    }
+    if(dataFilters.sourceQuery){
+      cqlStatements.push(this._getCQLFromSourceFilter(dataFilters.sourceQuery))
     }
     const params: any = {
       format: 'image/png',
