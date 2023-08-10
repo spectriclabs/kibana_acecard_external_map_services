@@ -457,7 +457,8 @@ export const SldStyleEditor: React.FC<Props> = ({
   return (
     <div>
       {state.style.rules.map((rule, i) => (
-        <EuiAccordion id ={`rule-${i}`} 
+        <EuiAccordion id={`rule-${i}`} 
+        key={`rule-${i}`} 
         element="fieldset" 
         buttonContent={`Style Rule #${i+1}`}
         forceState={state.accordion===i?"open":"closed"} onToggle={(isOpen)=>{
