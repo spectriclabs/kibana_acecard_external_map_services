@@ -33,6 +33,7 @@ import { Filter, Query, fromKueryExpression } from '@kbn/es-query';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { Tooltip } from './tooltips';
 import { getIsDarkMode } from '../config';
+import { WFSColumns } from './acecard_ems_editor';
 const sldParser = new SLDParser();
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -92,6 +93,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   geoColumn: string;
   nrt: boolean;
   sldBody?: Style;
+  wfsColumns?: WFSColumns[];
 };
 
 export class AcecardEMSSource implements IRasterSource {
@@ -187,7 +189,11 @@ export class AcecardEMSSource implements IRasterSource {
     if (!prevMeta) {
       return false;
     }
-    //Check if the layer specific filters have changed
+    if(!prevMeta.sourceQuery && nextRequestMeta.sourceQuery){
+      //On layer first creation there will never be a source query, but if one is added we need to refresh
+      return false
+    }
+    //Check if the layer specific filters have changed since last time
     if(prevMeta.sourceQuery && nextRequestMeta.sourceQuery && 
       (JSON.stringify(prevMeta.sourceQuery)!==JSON.stringify(nextRequestMeta.sourceQuery)
       )){
