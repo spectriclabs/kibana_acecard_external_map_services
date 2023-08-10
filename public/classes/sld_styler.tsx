@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import uuid from 'uuid';
+import { v4 as uuid} from 'uuid';
 import {
   Style,
   Rule,
@@ -482,7 +482,7 @@ export const SldStyleEditor: React.FC<Props> = ({
       <EuiButton
         onClick={() => {
           state.style.rules.push({
-            name: 'Rule_' + uuid.v4(),
+            name: 'Rule_' + uuid(),
             symbolizers: [],
           });
           setState({...state, style: { ...state.style, rules: [...state.style.rules] },accordion:state.style.rules.length -1 });
