@@ -16,8 +16,8 @@
     border-bottom-color: #1d1e24;
 }
 
-.acecard-map-popup .euiPanel {
-        div {
+.acecard-map-popup  {
+        .acecard-tooltip-content {
     max-height: 200px;
     overflow: auto;
     }
