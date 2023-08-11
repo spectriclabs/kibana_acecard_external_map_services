@@ -1,20 +1,8 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License
- * 2.0 and the Server Side Public License, v 1; you may not use this file except
- * in compliance with, at your election, the Elastic License 2.0 or the Server
- * Side Public License, v 1.
- */
+/* eslint-disable @kbn/eslint/require-license-header */
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 import React, { Component } from 'react';
-import {
-  EuiCallOut,
-  EuiCheckbox,
-  EuiFormRow,
-  EuiPanel,
-  htmlIdGenerator,
-} from '@elastic/eui';
+import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
 import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
@@ -56,6 +44,7 @@ interface State {
   selectedLayer: string;
   timeColumn: string;
   geoColumn: string;
+  wfsColumns?: WFSColumns[];
   nrt: boolean;
   loading: boolean;
   layers: AcecardEMSLayers[];
@@ -70,6 +59,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     geoColumn: '',
     nrt: false,
     sldBody: undefined,
+    wfsColumns: [],
     loading: true,
     layers: [] as AcecardEMSLayers[],
     services: [] as WMSService[],
@@ -211,6 +201,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
           geoColumn: this.state.geoColumn,
           nrt: this.state.nrt,
           sldBody: this.state.sldBody,
+          wfsColumns: this.state.wfsColumns,
         } as AcecardEMSSourceDescriptor,
         style: {
           type: 'RASTER',
@@ -275,6 +266,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                       geoColumn: this.state.geoColumn,
                       nrt: this.state.nrt,
                       sldBody: this.state.sldBody,
+                      wfsColumns: this.state.wfsColumns,
                     } as AcecardEMSSourceDescriptor,
                     style: {
                       type: 'RASTER',
@@ -377,6 +369,7 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
     }
     const json = await resp.json();
     const columns: WFSColumns[] = json.featureTypes[0].properties;
+    this.props.handlePropertyChange({ wfsColumns: columns });
     this.setState({ ...this.state, columns });
   }
   render() {
