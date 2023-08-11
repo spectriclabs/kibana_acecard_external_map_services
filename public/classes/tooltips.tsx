@@ -1,10 +1,4 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License
- * 2.0 and the Server Side Public License, v 1; you may not use this file except
- * in compliance with, at your election, the Elastic License 2.0 or the Server
- * Side Public License, v 1.
- */
+/* eslint-disable @kbn/eslint/require-license-header */
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 /* eslint-disable react/prefer-stateless-function */
@@ -68,7 +62,7 @@ export class Tooltip extends Component<ExtraHandlersProps> {
     }
     return (
       <KibanaThemeProvider theme$={theme.theme$}>
-        <EuiPanel className='acecard-tooltip-content'>
+        <EuiPanel className="acecard-tooltip-content">
           <KeyPairs pairs={keypair} />
         </EuiPanel>
       </KibanaThemeProvider>
@@ -76,35 +70,50 @@ export class Tooltip extends Component<ExtraHandlersProps> {
   }
 }
 
-export const MultiLayerToolTip = (props: React.PropsWithChildren<{promises:Promise<TooltipDescriptor>[],click:MapMouseEvent & Record<string, unknown>,popup:Popup}>)=>{
+export const MultiLayerToolTip = (
+  props: React.PropsWithChildren<{
+    promises: Array<Promise<TooltipDescriptor>>;
+    click: MapMouseEvent & Record<string, unknown>;
+    popup: Popup;
+  }>
+) => {
   const theme = getTheme();
-  const [state, setState] = useState<{layers:TooltipDescriptor[],display:number}>({layers:[],display:0})
-  useEffect(()=>{
-    setState({...state,layers:[]})
-    const awaitPromises = async () =>{
-    const layers :TooltipDescriptor[] = []
-    props.promises.forEach(async p=>{
-      const element = await p;
-      props.popup.addTo(props.click.target);
-      layers.push(element)
-      setState({...state,layers})
-    })
-  }
-  awaitPromises()
-  },[props.promises])
-const selection = Math.min(state.layers.length -1,state.display)
-return (
-  <KibanaThemeProvider theme$={theme.theme$}>
-<EuiPanel>
-{state.layers.length? 
-<>
-{state.layers[selection].element}
-{state.layers.length > 1 ?
-<EuiRadioGroup compressed={true} legend={{children:"Layer",compressed:true}} idSelected={String(selection)} onChange={(e)=>setState({...state,display:parseInt(e,10)})} options={state.layers.map((l,i)=>({id:String(i),label:l.name}))}/>
-:null }
-</>
-:null}
-</EuiPanel>
-</KibanaThemeProvider>
-)
-}
+  const [state, setState] = useState<{ layers: TooltipDescriptor[]; display: number }>({
+    layers: [],
+    display: 0,
+  });
+  useEffect(() => {
+    setState({ ...state, layers: [] });
+    const awaitPromises = async () => {
+      const layers: TooltipDescriptor[] = [];
+      props.promises.forEach(async (p) => {
+        const element = await p;
+        props.popup.addTo(props.click.target);
+        layers.push(element);
+        setState({ ...state, layers });
+      });
+    };
+    awaitPromises();
+  }, [props.promises]);
+  const selection = Math.min(state.layers.length - 1, state.display);
+  return (
+    <KibanaThemeProvider theme$={theme.theme$}>
+      <EuiPanel>
+        {state.layers.length ? (
+          <>
+            {state.layers[selection].element}
+            {state.layers.length > 1 ? (
+              <EuiRadioGroup
+                compressed={true}
+                legend={{ children: 'Layer', compressed: true }}
+                idSelected={String(selection)}
+                onChange={(e) => setState({ ...state, display: parseInt(e, 10) })}
+                options={state.layers.map((l, i) => ({ id: String(i), label: l.name }))}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </EuiPanel>
+    </KibanaThemeProvider>
+  );
+};
