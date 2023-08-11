@@ -6,9 +6,8 @@
  * Side Public License, v 1.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
-import React, { ReactElement } from 'react';
+import React, { ReactElement,  } from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import { toCql } from "./ast"
 import { calculateBounds } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
 import { Style } from 'geostyler-style';
@@ -30,8 +29,9 @@ import type {
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
 import { MapMouseEvent, Popup, RasterTileSource, Map as MapboxMap } from 'maplibre-gl';
 import { Filter, Query, fromKueryExpression } from '@kbn/es-query';
+import { toCql } from './ast';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
-import { Tooltip } from './tooltips';
+import { MultiLayerToolTip, Tooltip } from './tooltips';
 import { getIsDarkMode } from '../config';
 import { WFSColumns } from './acecard_ems_editor';
 const sldParser = new SLDParser();
@@ -39,6 +39,10 @@ const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
 const LIVE_SOURCE: Record<string, number> = {};
 const TIMERS_MAP: Map<MapboxMap, number> = new Map();
+export interface TooltipDescriptor {
+  name: string;
+  element: JSX.Element;
+}
 const setRefreshTimer = (mbMap: MapboxMap) => {
   if (!TIMERS_MAP.has(mbMap)) {
     window.console.log('Setting timer');
@@ -54,7 +58,15 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
   click: MapMouseEvent & Record<string, unknown>
 ) {
   // check if the map still has the source if not remove that click handler
+  // @ts-ignore
+  if (!click.target._acecardToolTipContainer) {
+    // @ts-ignore
+    click.target._acecardToolTipContainer = document.createElement('div');
+  }
+  // @ts-ignore
+  const container = click.target._acecardToolTipContainer;
   const sources = Object.keys(CLICK_HANDLERS);
+  const tipPromises: Array<Promise<TooltipDescriptor>> = [];
   sources.forEach((s) => {
     const source = CLICK_HANDLERS[s];
     // FIXME make it so you have a layer selector step if there are multiple layers that return data from the click
@@ -79,12 +91,21 @@ const CUSTOM_CLICKHANDLER = function CUSTOM_CLICKHANDLER(
       ) {
         if (layers[0].visibility === 'visible') {
           // Ensure Layer is visible
-          source.onClick(click);
+          tipPromises.push(source.onClick(click));
         }
       }
     }
   });
+  const popupClasses = getIsDarkMode()
+    ? 'acecard-map-popup acecard-map-popup-dark'
+    : 'acecard-map-popup';
+  const popup = new Popup({ className: popupClasses })
+    .setDOMContent(container)
+    .setLngLat(click.lngLat);
+
+  render(<MultiLayerToolTip promises={tipPromises} click={click} popup={popup} />, container);
 };
+
 export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   baseUrl: string;
   layer: string;
@@ -189,16 +210,18 @@ export class AcecardEMSSource implements IRasterSource {
     if (!prevMeta) {
       return false;
     }
-    if(!prevMeta.sourceQuery && nextRequestMeta.sourceQuery){
-      //On layer first creation there will never be a source query, but if one is added we need to refresh
-      return false
+    if (!prevMeta.sourceQuery && nextRequestMeta.sourceQuery) {
+      // On layer first creation there will never be a source query, but if one is added we need to refresh
+      return false;
     }
-    //Check if the layer specific filters have changed since last time
-    if(prevMeta.sourceQuery && nextRequestMeta.sourceQuery && 
-      (JSON.stringify(prevMeta.sourceQuery)!==JSON.stringify(nextRequestMeta.sourceQuery)
-      )){
-        console.log("Updating because Layer filters changed")
-      return false
+    // Check if the layer specific filters have changed since last time
+    if (
+      prevMeta.sourceQuery &&
+      nextRequestMeta.sourceQuery &&
+      JSON.stringify(prevMeta.sourceQuery) !== JSON.stringify(nextRequestMeta.sourceQuery)
+    ) {
+      window.console.log('Updating because Layer filters changed');
+      return false;
     }
     if (this._descriptor.nrt) {
       // We are real time source so we always need to update
@@ -309,8 +332,8 @@ export class AcecardEMSSource implements IRasterSource {
       }
     });
     if (groups.length) {
-      const container = this._popupContainer;
-      render(
+      // const container = this._popupContainer;
+      const tooltipElement = (
         <>
           <Tooltip
             wmsBase={this._descriptor.baseUrl}
@@ -318,7 +341,10 @@ export class AcecardEMSSource implements IRasterSource {
             keypair={groups[0]}
             map={click.target}
           />
-        </>,
+        </>
+      ); /*
+      render(
+        tooltipElement,
         container
       );
       const popupClasses = getIsDarkMode()
@@ -327,8 +353,11 @@ export class AcecardEMSSource implements IRasterSource {
       new Popup({ className: popupClasses })
         .setDOMContent(container)
         .setLngLat(click.lngLat)
-        .addTo(click.target);
+        .addTo(click.target);*/
+      return { name: this._descriptor.name, element: tooltipElement };
     }
+    // eslint-disable-next-line no-throw-literal
+    throw 'No Data found';
   }
 
   cloneDescriptor(): AcecardEMSSourceDescriptor {
@@ -509,20 +538,19 @@ export class AcecardEMSSource implements IRasterSource {
     }
     return cqlStatements;
   }
-  _getCQLFromSourceFilter(sourceQuery:Query | undefined) {
-
-        /*
+  _getCQLFromSourceFilter(sourceQuery: Query | undefined) {
+    /*
     Convert source query to CQL
     {
         "query": "name:'mil'",
         "language": "kuery"
     }
     */
-    if(sourceQuery && sourceQuery.language === "kuery"){
+    if (sourceQuery && sourceQuery.language === 'kuery') {
       const kueryNode = fromKueryExpression(sourceQuery.query);
-      return `(${toCql(kueryNode)})`
+      return `(${toCql(kueryNode)})`;
     }
-    return ""
+    return '';
   }
   // FIXME create CQL filter from DSL filter dataFilters.sourceQuery they patched this is 8.8.0 to pass it down correctly.
   async getUrlTemplate(dataFilters: SourceRequestMeta): Promise<string> {
@@ -546,8 +574,8 @@ export class AcecardEMSSource implements IRasterSource {
     if (this._descriptor.timeColumn !== '' && start && stop) {
       cqlStatements.push(`(${this._descriptor.timeColumn} BETWEEN ${start} AND ${stop})`);
     }
-    if(dataFilters.sourceQuery){
-      cqlStatements.push(this._getCQLFromSourceFilter(dataFilters.sourceQuery))
+    if (dataFilters.sourceQuery) {
+      cqlStatements.push(this._getCQLFromSourceFilter(dataFilters.sourceQuery));
     }
     const params: any = {
       format: 'image/png',
