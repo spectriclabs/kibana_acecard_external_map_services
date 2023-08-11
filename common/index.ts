@@ -1,4 +1,4 @@
 /* eslint-disable @kbn/eslint/require-license-header */
 
-export const PLUGIN_ID = 'mapsCustomRasterSource';
-export const PLUGIN_NAME = 'Third party maps source example';
+export const PLUGIN_ID = 'acecardExternalMapsService';
+export const PLUGIN_NAME = 'Acecard External Maps Service';
