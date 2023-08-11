@@ -1,6 +1,6 @@
 /* eslint-disable @kbn/eslint/require-license-header */
 
-import { CoreSetup, CoreStart, Plugin, PluginInitializerContext } from '@kbn/core/public';
+import { AppNavLinkStatus, CoreSetup, CoreStart, Plugin, PluginInitializerContext } from '@kbn/core/public';
 import {
   AcecardExternalMapsSetupApi,
   AcecardExternalMapsSourcePluginSetup,
@@ -35,6 +35,7 @@ export class AcecardExternalMapsSourcePlugin
     core.application.register({
       id: PLUGIN_ID,
       title: PLUGIN_NAME,
+      navLinkStatus: AppNavLinkStatus.hidden,
       mount: ({ history }) => {
         (async () => {
           const [coreStart] = await core.getStartServices();
