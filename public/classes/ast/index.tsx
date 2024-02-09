@@ -64,12 +64,17 @@ const range = (node: KueryNode) => {
   }
   return `${fieldNameArg.value} ${opsign} ${value}`;
 };
+const exists = (node: KueryNode) => {
+  const [fieldNameArg, operator, valueArg] = node.arguments;
+  return `${fieldNameArg.value} IS NOT NULL`;
+};
 export const functions = {
   is,
   and,
   or,
   not,
   range,
+  exists
 };
 const nodeTypes = {
   function: (node: KueryNode) => {
