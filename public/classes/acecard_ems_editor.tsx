@@ -9,6 +9,8 @@ import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
 import { AcecardEMSSource, AcecardEMSSourceDescriptor } from './acecard_ems_source';
 import { getConfig } from '../config';
 import { SldStyleEditor } from './sld_styler';
+import { NotificationService } from '@kbn/index-management-plugin/public/application/services';
+import { getNotifications } from '../plugin';
 
 function titlesToOptions(titles: string[]): Array<EuiComboBoxOptionOption<string>> {
   return titles.map((title) => {
@@ -152,13 +154,28 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     const config = getConfig();
     const services = [];
     for (const url of config.urls) {
-      const capabilities: Document = await this._fetchCapabilities(url, 'WMS');
-      let title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
-        .textContent as string;
-      if (title === '') {
-        title = url;
+      try {
+        const capabilities: Document = await this._fetchCapabilities(url, 'WMS');
+        let title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
+          .textContent as string;
+        if (title === '') {
+          title = url;
+        }
+        services.push({ title, capabilities, baseURL: url });
+      } catch (e) {
+        const notifications = getNotifications();
+        if (notifications) {
+          notifications.toasts.addError({
+            name: "ExternalServiceFailed",
+            message: e.message,
+            cause: e
+          },
+            {
+              title: "Unable to load Map Service",
+              toastMessage: `Failed to load External map service capabilities for ${url} ensure this service is up and configured for CORS`
+            })
+        }
       }
-      services.push({ title, capabilities, baseURL: url });
     }
     this.setState({ ...this.state, services, loading: false });
   }

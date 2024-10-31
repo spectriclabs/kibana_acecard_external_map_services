@@ -1,10 +1,13 @@
 /* eslint-disable @kbn/eslint/require-license-header */
+
+import { NotificationsSetup } from '@kbn/core/public';
 import type { Map as MapboxMap } from '@kbn/mapbox-gl';
 import { MapsPluginSetup, MapsPluginStart } from '@kbn/maps-plugin/public/plugin';
 import { ReactElement } from 'react';
 
 export interface AcecardExternalMapsSourcePluginSetup {
   maps: MapsPluginSetup;
+  notifications: NotificationsSetup
 }
 export interface AcecardExternalMapsSourcePluginStart {
   maps: MapsPluginStart;

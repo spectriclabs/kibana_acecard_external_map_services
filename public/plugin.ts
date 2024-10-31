@@ -1,6 +1,6 @@
 /* eslint-disable @kbn/eslint/require-license-header */
 
-import { AppNavLinkStatus, CoreSetup, CoreStart, Plugin, PluginInitializerContext } from '@kbn/core/public';
+import { AppNavLinkStatus, CoreSetup, CoreStart, NotificationsSetup, Plugin, PluginInitializerContext } from '@kbn/core/public';
 import {
   AcecardExternalMapsSetupApi,
   AcecardExternalMapsSourcePluginSetup,
@@ -11,7 +11,10 @@ import { acecardEMSLayerWizard } from './classes/acecard_ems_layer_wizard';
 import { PLUGIN_ID, PLUGIN_NAME } from '../common';
 import { AcecardEMSConfig } from '../common/config';
 import { registerTootipHandler, setConfig, setStartServices } from './config';
-
+var notificationService:NotificationsSetup|undefined;
+export const  getNotifications = ()=>{
+  return notificationService
+}
 export class AcecardExternalMapsSourcePlugin
   implements
     Plugin<void, void, AcecardExternalMapsSourcePluginSetup, AcecardExternalMapsSourcePluginStart>
@@ -25,6 +28,7 @@ export class AcecardExternalMapsSourcePlugin
     { maps: mapsSetup }: AcecardExternalMapsSourcePluginSetup
   ): AcecardExternalMapsSetupApi {
     // Register the Custom raster layer wizard with the Maps application
+    notificationService=core.notifications
     mapsSetup.registerSource({
       type: AcecardEMSSource.type,
       ConstructorFunction: AcecardEMSSource,
