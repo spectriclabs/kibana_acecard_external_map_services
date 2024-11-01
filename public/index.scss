@@ -1,7 +1,10 @@
 .acecard-map-popup .acecard-map-popup-dark>.mapboxgl-popup-tip {
     border-top-color: #1d1e24;
   }
-
+  .acecard-map-popup.acecard-map-popup-dark >.maplibregl-popup-content{
+    background: #1d1e24;
+    padding: 0px;
+  }
 .acecard-map-popup  > .mapboxgl-popup-content, .maplibregl-popup-content {
     background: rgba(0,0,0,0);
     padding: 0px 0px;
@@ -11,7 +14,7 @@
     margin: 0px 3px;
 }
 
-.acecard-map-popup-dark > .maplibregl-popup-tip.mapboxgl-popup-tip {
+.acecard-map-popup.acecard-map-popup-dark>.maplibregl-popup-tip {
     border-top-color: #1d1e24;
     border-bottom-color: #1d1e24;
 }
