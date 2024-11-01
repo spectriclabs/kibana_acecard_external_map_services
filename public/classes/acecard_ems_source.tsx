@@ -6,34 +6,51 @@
  * Side Public License, v 1.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
-import React, { ReactElement,  } from 'react';
+import React, { ReactElement, } from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import { calculateBounds } from '@kbn/data-plugin/common';
-import { FieldFormatter, MIN_ZOOM, MAX_ZOOM } from '@kbn/maps-plugin/common';
+import { calculateBounds, DataView } from '@kbn/data-plugin/common';
+import { FieldFormatter, MIN_ZOOM, MAX_ZOOM, VECTOR_SHAPE_TYPE } from '@kbn/maps-plugin/common';
 import { Style } from 'geostyler-style';
 import SLDParser from 'geostyler-sld-parser';
 import type {
   AbstractSourceDescriptor,
   Attribution,
+  DataFilters,
   DataRequestMeta,
+  DynamicStylePropertyOptions,
+  MapExtent,
   SourceRequestMeta,
+  StyleMetaData,
   Timeslice,
+  TooltipFeatureAction,
+  VectorSourceRequestMeta,
 } from '@kbn/maps-plugin/common/descriptor_types';
 import type {
+  BoundsRequestMeta,
   DataRequest,
+  GeoJsonWithMeta,
+  GetFeatureActionsArgs,
   IField,
   ImmutableSourceProperty,
   IRasterSource,
+  ITooltipProperty,
   SourceEditorArgs,
+  SourceStatus,
 } from '@kbn/maps-plugin/public';
 import { RasterTileSourceData } from '@kbn/maps-plugin/public/classes/sources/raster_source';
 import { MapMouseEvent, Popup, RasterTileSource, Map as MapboxMap } from 'maplibre-gl';
-import { Filter, Query, fromKueryExpression } from '@kbn/es-query';
+import { Filter, Query, TimeRange, fromKueryExpression } from '@kbn/es-query';
 import { toCql } from './ast';
 import { getRotatedViewport, toWKT, parseCQL } from './utils';
 import { MultiLayerToolTip, Tooltip } from './tooltips';
 import { getIsDarkMode } from '../config';
 import { WFSColumns } from './acecard_ems_editor';
+import { IESSource } from '@kbn/maps-plugin/public/classes/sources/es_source/types';
+import { KibanaExecutionContext } from '@kbn/core-execution-context-common';
+import { Adapters } from '@kbn/inspector-plugin/common';
+import { IDynamicStyleProperty } from '@kbn/maps-plugin/public/classes/styles/vector/properties/dynamic_style_property';
+import { IVectorStyle } from '@kbn/maps-plugin/public/classes/styles/vector/vector_style';
+import { SearchResponseWarning } from '@kbn/search-response-warnings';
 const sldParser = new SLDParser();
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -117,7 +134,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   wfsColumns?: WFSColumns[];
 };
 
-export class AcecardEMSSource implements IRasterSource {
+export class AcecardEMSSource implements IRasterSource, IESSource {
   static type = 'AcecardEMSSource';
   readonly _popupContainer = document.createElement('div');
   readonly _descriptor: AcecardEMSSourceDescriptor;
@@ -142,6 +159,106 @@ export class AcecardEMSSource implements IRasterSource {
   constructor(sourceDescriptor: AcecardEMSSourceDescriptor) {
     this._descriptor = sourceDescriptor;
     this.cql_filter = '';
+  }
+  getId(): string {
+    return "";
+  }
+
+  async _fetchWFSColumns(): Promise<WFSColumns[]> {
+    const queryParams = {
+      version: '2.0.0',
+      request: 'DescribeFeatureType',
+      service: 'WFS',
+      typeName: this._descriptor.layer,
+      outputFormat: 'application/json',
+    };
+    const params = new URLSearchParams(queryParams);
+    const resp = await fetch(this._descriptor.baseUrl + '?' + params);
+    if (resp.status >= 400) {
+      throw new Error(`Unable to access ${this._descriptor.baseUrl}`);
+    }
+    const json = await resp.json();
+    const columns: WFSColumns[] = json.featureTypes[0].properties;
+    return columns
+  }
+  async getIndexPattern(): Promise<DataView> {
+    let columns = await this._fetchWFSColumns()
+    const fields:any = {}
+    columns.forEach(c=>{
+      fields[c.name] = {
+        searchable: true, aggregatable: false, name: c.name, type: c.localType
+      }
+    })
+    //@ts-ignore
+    return new DataView({
+      spec:
+      {
+        fields
+      }
+    })
+  }
+  getIndexPatternId(): string {
+    throw new Error('Method not implemented.');
+  }
+  loadStylePropsMeta({ layerName, style, dynamicStyleProps, registerCancelCallback, sourceQuery, timeFilters, searchSessionId, inspectorAdapters, executionContext, }: { layerName: string; style: IVectorStyle; dynamicStyleProps: Array<IDynamicStyleProperty<DynamicStylePropertyOptions>>; registerCancelCallback: (callback: () => void) => void; sourceQuery?: Query; timeFilters: TimeRange; searchSessionId?: string; inspectorAdapters: Adapters; executionContext: KibanaExecutionContext; }): Promise<{ styleMeta: StyleMetaData; warnings: SearchResponseWarning[]; }> {
+    throw new Error('Method not implemented.');
+  }
+  isMvt(): boolean {
+    return false;
+  }
+  canShowTooltip():boolean{
+    return true
+  }
+  async getTooltipProperties(properties: any, executionContext: KibanaExecutionContext): Promise<ITooltipProperty[]> {
+    return []
+  }
+  getBoundsForFilters(layerDataFilters: BoundsRequestMeta, registerCancelCallback: (callback: () => void) => void): Promise<MapExtent | null> {
+    throw new Error('Method not implemented.');
+  }
+  getGeoJsonWithMeta(layerName: string, requestMeta: VectorSourceRequestMeta, registerCancelCallback: (callback: () => void) => void, isRequestStillActive: () => boolean, inspectorAdapters: Adapters): Promise<GeoJsonWithMeta> {
+    throw new Error('Method not implemented.');
+  }
+  getFields(): Promise<IField[]> {
+    throw new Error('Method not implemented.');
+  }
+  getFieldByName(fieldName: string): IField | null {
+    throw new Error('Method not implemented.');
+  }
+  getLeftJoinFields(): Promise<IField[]> {
+    throw new Error('Method not implemented.');
+  }
+  supportsJoins(): boolean {
+    return false
+  }
+  getSyncMeta(dataFilters: DataFilters): object | null {
+    throw new Error('Method not implemented.');
+  }
+  hasTooltipProperties(): boolean {
+    return true
+  }
+  getSupportedShapeTypes(): Promise<VECTOR_SHAPE_TYPE[]> {
+    throw new Error('Method not implemented.');
+  }
+  getSourceStatus(sourceDataRequest?: DataRequest): SourceStatus {
+    throw new Error('Method not implemented.');
+  }
+  async getTimesliceMaskFieldName(): Promise<string | null> {
+    return null
+  }
+  async supportsFeatureEditing(): Promise<boolean> {
+    return false
+  }
+  addFeature(geometry: any): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  deleteFeature(featureId: string): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  getFeatureActions({ addFilters, featureId, geoFieldNames, getActionContext, getFilterActions, getGeojsonGeometry, mbFeature, onClose, }: GetFeatureActionsArgs): TooltipFeatureAction[] {
+    throw new Error('Method not implemented.');
+  }
+  getInspectorRequestIds(): string[] {
+    return [];
   }
   async hasLegendDetails(): Promise<boolean> {
     return false;
@@ -519,7 +636,7 @@ export class AcecardEMSSource implements IRasterSource {
                 // check if point then make geojson point else use the geojson shape
                 const geo_shape =
                   Array.isArray(statement.geo_distance[geoColumn]) &&
-                  statement.geo_distance[geoColumn].length === 2
+                    statement.geo_distance[geoColumn].length === 2
                     ? { shape: { type: 'Point', coordinates: statement.geo_distance[geoColumn] } }
                     : statement.geo_distance[geoColumn];
                 const shape = toWKT(geo_shape.shape);

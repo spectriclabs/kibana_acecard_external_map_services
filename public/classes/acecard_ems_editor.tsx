@@ -5,7 +5,7 @@ import React, { Component } from 'react';
 import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
-import { EuiComboBox, EuiComboBoxOptionOption } from '@elastic/eui';
+import { EuiComboBox, EuiComboBoxOptionOption, EuiFieldText, EuiButton } from '@elastic/eui';
 import { AcecardEMSSource, AcecardEMSSourceDescriptor } from './acecard_ems_source';
 import { getConfig } from '../config';
 import { SldStyleEditor } from './sld_styler';
@@ -51,10 +51,12 @@ interface State {
   loading: boolean;
   layers: AcecardEMSLayers[];
   services: WMSService[];
+  newUrl: string;
 }
 const XML_PARSER = new DOMParser();
 export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
   state = {
+    newUrl: "",
     selectedServer: '',
     selectedLayer: '',
     timeColumn: '',
@@ -67,19 +69,39 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     services: [] as WMSService[],
   };
   async _fetchCapabilities(baseUrl: string, service: string) {
-    const queryParams = {
-      version: '1.3.1',
-      request: 'GetCapabilities',
-      service,
-    };
-    const params = new URLSearchParams(queryParams);
-    const resp = await fetch(baseUrl + '?' + params);
-    if (resp.status >= 400) {
-      throw new Error(`Unable to access ${baseUrl}`);
+    try {
+      const queryParams = {
+        version: '1.3.1',
+        request: 'GetCapabilities',
+        service,
+      };
+      const params = new URLSearchParams(queryParams);
+      const resp = await fetch(baseUrl + '?' + params);
+      if (resp.status >= 400) {
+        throw new Error(`Unable to access ${baseUrl}`);
+      }
+      const body = await resp.text();
+      const capabilities = XML_PARSER.parseFromString(body, 'text/xml');
+      let title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
+        .textContent as string;
+      if (title === '') {
+        title = baseUrl;
+      }
+      return { title, capabilities, baseURL: baseUrl };
+    } catch (e) {
+      const notifications = getNotifications();
+      if (notifications) {
+        notifications.toasts.addError({
+          name: "ExternalServiceFailed",
+          message: e.message,
+          cause: e
+        },
+          {
+            title: "Unable to load Map Service",
+            toastMessage: `Failed to load External map service capabilities for ${baseUrl} ensure this service is up and configured for CORS`
+          })
+      }
     }
-    const body = await resp.text();
-    return XML_PARSER.parseFromString(body, 'text/xml');
-    // return await parseXmlString(body);
   }
   async _fetchWMSLayers(serviceTitle: string) {
     const { services } = this.state;
@@ -150,32 +172,17 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     };
     this.props.previewLayers([acecardEMSLayerDescriptor]);
   }
+
   async componentDidMount() {
     const config = getConfig();
     const services = [];
     for (const url of config.urls) {
-      try {
-        const capabilities: Document = await this._fetchCapabilities(url, 'WMS');
-        let title = capabilities.getElementsByTagName('Service')[0].getElementsByTagName('Title')[0]
-          .textContent as string;
-        if (title === '') {
-          title = url;
-        }
-        services.push({ title, capabilities, baseURL: url });
-      } catch (e) {
-        const notifications = getNotifications();
-        if (notifications) {
-          notifications.toasts.addError({
-            name: "ExternalServiceFailed",
-            message: e.message,
-            cause: e
-          },
-            {
-              title: "Unable to load Map Service",
-              toastMessage: `Failed to load External map service capabilities for ${url} ensure this service is up and configured for CORS`
-            })
-        }
+
+      const service = await this._fetchCapabilities(url, 'WMS');
+      if (service) {
+        services.push(service);
       }
+
     }
     this.setState({ ...this.state, services, loading: false });
   }
@@ -233,6 +240,32 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
       <EuiPanel>
         <EuiCallOut title="ACECARD EMS">
           <p>ACECARD External Map services</p>
+          <EuiFormRow label={"Add Source"}>
+            <>
+              <EuiFieldText
+
+                onChange={(e) => {
+                  this.setState({ ...this.state, newUrl: e.target.value })
+                }}
+              />
+              <EuiButton
+                disabled={this.state.newUrl == ""}
+                onClick={async () => {
+                  const service = await this._fetchCapabilities(this.state.newUrl, 'WMS');
+                  if (service) {
+                    this.state.services.push(service);
+                    const notifications = getNotifications();
+                    if (notifications) {
+                      notifications.toasts.addInfo({title:"New Source Added",text:"Source is now selectable"})
+                    }
+                    this.setState({ ...this.state, services: [...this.state.services], newURL: "" })
+                  }
+                }}
+              >
+                Add Server
+              </EuiButton>
+            </>
+          </EuiFormRow>
           {services.length ? (
             <EuiFormRow label={'Select Source'}>
               <EuiComboBox
@@ -372,6 +405,7 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
     }
   }
   async _fetchWFSColumns(): Promise<void> {
+    try{
     const queryParams = {
       version: '2.0.0',
       request: 'DescribeFeatureType',
@@ -388,6 +422,22 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
     const columns: WFSColumns[] = json.featureTypes[0].properties;
     this.props.handlePropertyChange({ wfsColumns: columns });
     this.setState({ ...this.state, columns });
+  }catch(e){
+
+    const notifications = getNotifications();
+    if (notifications) {
+      notifications.toasts.addError({
+        name: "ExternalServiceFailed",
+        message: e.message,
+        cause: e
+      },
+        {
+          title: "Unable to load Map  WFS Columns",
+          toastMessage: `Failed to load External map service columns ${this.props.descriptor.baseUrl} the map will be unable to run various filtering functions`
+        })
+
+  }
+  }
   }
   render() {
     const timeSelection =
