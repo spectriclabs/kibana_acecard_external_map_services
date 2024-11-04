@@ -2,14 +2,12 @@
 /* eslint-disable react/no-multi-comp */
 /* eslint-disable max-classes-per-file */
 import React, { Component } from 'react';
-import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator } from '@elastic/eui';
+import { EuiCallOut, EuiCheckbox, EuiFormRow, EuiPanel, htmlIdGenerator, EuiComboBox, EuiComboBoxOptionOption, EuiFieldText, EuiButton } from "@elastic/eui";
 import { RenderWizardArguments } from '@kbn/maps-plugin/public';
 import { LayerDescriptor, LAYER_TYPE } from '@kbn/maps-plugin/common';
-import { EuiComboBox, EuiComboBoxOptionOption, EuiFieldText, EuiButton } from '@elastic/eui';
 import { AcecardEMSSource, AcecardEMSSourceDescriptor } from './acecard_ems_source';
 import { getConfig } from '../config';
 import { SldStyleEditor } from './sld_styler';
-import { NotificationService } from '@kbn/index-management-plugin/public/application/services';
 import { getNotifications } from '../plugin';
 
 function titlesToOptions(titles: string[]): Array<EuiComboBoxOptionOption<string>> {
@@ -256,7 +254,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                     this.state.services.push(service);
                     const notifications = getNotifications();
                     if (notifications) {
-                      notifications.toasts.addInfo({title:"New Source Added",text:"Source is now selectable"})
+                      notifications.toasts.addInfo({ title: "New Source Added", text: "Source is now selectable" })
                     }
                     this.setState({ ...this.state, services: [...this.state.services], newURL: "" })
                   }
@@ -405,39 +403,39 @@ export class AcecardEMSSettingsEditor extends Component<Props, SettingsState> {
     }
   }
   async _fetchWFSColumns(): Promise<void> {
-    try{
-    const queryParams = {
-      version: '2.0.0',
-      request: 'DescribeFeatureType',
-      service: 'WFS',
-      typeName: this.props.descriptor.layer,
-      outputFormat: 'application/json',
-    };
-    const params = new URLSearchParams(queryParams);
-    const resp = await fetch(this.props.descriptor.baseUrl + '?' + params);
-    if (resp.status >= 400) {
-      throw new Error(`Unable to access ${this.props.descriptor.baseUrl}`);
+    try {
+      const queryParams = {
+        version: '2.0.0',
+        request: 'DescribeFeatureType',
+        service: 'WFS',
+        typeName: this.props.descriptor.layer,
+        outputFormat: 'application/json',
+      };
+      const params = new URLSearchParams(queryParams);
+      const resp = await fetch(this.props.descriptor.baseUrl + '?' + params);
+      if (resp.status >= 400) {
+        throw new Error(`Unable to access ${this.props.descriptor.baseUrl}`);
+      }
+      const json = await resp.json();
+      const columns: WFSColumns[] = json.featureTypes[0].properties;
+      this.props.handlePropertyChange({ wfsColumns: columns });
+      this.setState({ ...this.state, columns });
+    } catch (e) {
+
+      const notifications = getNotifications();
+      if (notifications) {
+        notifications.toasts.addError({
+          name: "ExternalServiceFailed",
+          message: e.message,
+          cause: e
+        },
+          {
+            title: "Unable to load Map  WFS Columns",
+            toastMessage: `Failed to load External map service columns ${this.props.descriptor.baseUrl} the map will be unable to run various filtering functions`
+          })
+
+      }
     }
-    const json = await resp.json();
-    const columns: WFSColumns[] = json.featureTypes[0].properties;
-    this.props.handlePropertyChange({ wfsColumns: columns });
-    this.setState({ ...this.state, columns });
-  }catch(e){
-
-    const notifications = getNotifications();
-    if (notifications) {
-      notifications.toasts.addError({
-        name: "ExternalServiceFailed",
-        message: e.message,
-        cause: e
-      },
-        {
-          title: "Unable to load Map  WFS Columns",
-          toastMessage: `Failed to load External map service columns ${this.props.descriptor.baseUrl} the map will be unable to run various filtering functions`
-        })
-
-  }
-  }
   }
   render() {
     const timeSelection =

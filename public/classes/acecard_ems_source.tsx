@@ -6,8 +6,10 @@
  * Side Public License, v 1.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
-import React, { ReactElement, } from 'react';
+import React, { Fragment, ReactElement, } from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
+import { EuiFormRow, EuiSelect, EuiTitle, EuiPanel, EuiSpacer } from '@elastic/eui';
+
 import { calculateBounds, DataView } from '@kbn/data-plugin/common';
 import { FieldFormatter, MIN_ZOOM, MAX_ZOOM, VECTOR_SHAPE_TYPE } from '@kbn/maps-plugin/common';
 import { Style } from 'geostyler-style';
@@ -51,6 +53,7 @@ import { Adapters } from '@kbn/inspector-plugin/common';
 import { IDynamicStyleProperty } from '@kbn/maps-plugin/public/classes/styles/vector/properties/dynamic_style_property';
 import { IVectorStyle } from '@kbn/maps-plugin/public/classes/styles/vector/vector_style';
 import { SearchResponseWarning } from '@kbn/search-response-warnings';
+import { AddTooltipFieldPopover } from './components/add_tooltip_field_popover';
 const sldParser = new SLDParser();
 const TILE_SIZE = 256;
 const CLICK_HANDLERS: Record<string, AcecardEMSSource> = {};
@@ -131,6 +134,7 @@ export type AcecardEMSSourceDescriptor = AbstractSourceDescriptor & {
   geoColumn: string;
   nrt: boolean;
   sldBody?: Style;
+  tooltipProperties?:string[];
   wfsColumns?: WFSColumns[];
 };
 
@@ -139,7 +143,6 @@ export class AcecardEMSSource implements IRasterSource, IESSource {
   readonly _popupContainer = document.createElement('div');
   readonly _descriptor: AcecardEMSSourceDescriptor;
   cql_filter: string;
-
   static createDescriptor(
     baseUrl: string,
     layer: string,
@@ -164,25 +167,10 @@ export class AcecardEMSSource implements IRasterSource, IESSource {
     return "";
   }
 
-  async _fetchWFSColumns(): Promise<WFSColumns[]> {
-    const queryParams = {
-      version: '2.0.0',
-      request: 'DescribeFeatureType',
-      service: 'WFS',
-      typeName: this._descriptor.layer,
-      outputFormat: 'application/json',
-    };
-    const params = new URLSearchParams(queryParams);
-    const resp = await fetch(this._descriptor.baseUrl + '?' + params);
-    if (resp.status >= 400) {
-      throw new Error(`Unable to access ${this._descriptor.baseUrl}`);
-    }
-    const json = await resp.json();
-    const columns: WFSColumns[] = json.featureTypes[0].properties;
-    return columns
-  }
+
   async getIndexPattern(): Promise<DataView> {
-    let columns = await this._fetchWFSColumns()
+    
+    let columns = this._descriptor.wfsColumns ||[]
     const fields:any = {}
     columns.forEach(c=>{
       fields[c.name] = {
@@ -197,6 +185,7 @@ export class AcecardEMSSource implements IRasterSource, IESSource {
       }
     })
   }
+  
   getIndexPatternId(): string {
     throw new Error('Method not implemented.');
   }
@@ -456,6 +445,7 @@ export class AcecardEMSSource implements IRasterSource, IESSource {
             wmsBase={this._descriptor.baseUrl}
             layer={this._descriptor.layer}
             keypair={groups[0]}
+            tooltipProperties={this._descriptor.tooltipProperties}
             map={click.target}
           />
         </>
@@ -543,7 +533,21 @@ export class AcecardEMSSource implements IRasterSource, IESSource {
   }
   // FIXME? will we need to change this at runtime? if not move it to the acecard_ems_editor
   renderSourceSettingsEditor(sourceEditorArgs: SourceEditorArgs): ReactElement<any> | null {
-    return null;
+    return <Fragment>
+          <EuiPanel>
+        <EuiTitle size="xs">
+          <h5>
+            Tooltip fields
+          </h5>
+        </EuiTitle>
+        <AddTooltipFieldPopover             
+            onChange={sourceEditorArgs.onChange}
+            descriptor={this._descriptor}
+          ></AddTooltipFieldPopover>
+        </EuiPanel>
+        <EuiSpacer size="s" />
+
+    </Fragment>;
   }
 
   getApplyGlobalQuery(): boolean {
