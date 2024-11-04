@@ -149,7 +149,7 @@ export class AddTooltipFieldPopover extends Component<Props, State> {
                         type: column.localType,
                         name: column.name,
                         label: column.name,
-                        checked:(this.props.descriptor.tooltipProperties||[])?.includes(column.name)?'on':undefined
+                        checked:(this.props.descriptor.tooltipProperties||[])?.includes(column.name) || this.state.checkedFields.includes(column.name) ?'on':undefined
                     }))}
                     onChange={this._onSelect}
                 >
