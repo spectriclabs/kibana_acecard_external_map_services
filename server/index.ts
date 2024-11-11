@@ -45,6 +45,7 @@ export class AcecardEMSPlugin implements Plugin<AcecardEMSPluginServerSetup> {
       }
       core.uiSettings.register(versionSettings);
     }
+    // @ts-ignore
     import("../common/version").then((version)=>{
       setVersion(version.version)
     }).catch(()=>{

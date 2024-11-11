@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { Style, Rule } from 'geostyler-style';
-import { EuiButton, EuiPanel, EuiAccordion } from '@elastic/eui';
+import { EuiButton, EuiPanel, EuiAccordion } from "@elastic/eui";
 import { RuleRender } from './sld';
 import { WFSColumns } from './acecard_ems_editor';
 

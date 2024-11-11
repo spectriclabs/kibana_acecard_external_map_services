@@ -38,6 +38,7 @@ interface ExtraHandlersProps {
   layer: string;
   keypair: KeyPair[];
   map: MapboxMap;
+  tooltipProperties?:string[]
 }
 export class ExtraHandlers extends Component<ExtraHandlersProps> {
   render() {
@@ -48,7 +49,7 @@ export class ExtraHandlers extends Component<ExtraHandlersProps> {
 
 export class Tooltip extends Component<ExtraHandlersProps> {
   render() {
-    const { wmsBase, layer, keypair, map } = this.props;
+    const { wmsBase, layer, keypair, map,tooltipProperties } = this.props;
     const theme = getTheme();
     const handlers = tooltipHandlers
       .map((handler) => handler(wmsBase, layer, keypair, map))
@@ -63,7 +64,12 @@ export class Tooltip extends Component<ExtraHandlersProps> {
     return (
       <KibanaThemeProvider theme$={theme.theme$}>
         <EuiPanel className="acecard-tooltip-content">
-          <KeyPairs pairs={keypair} />
+          <KeyPairs pairs={keypair.filter(value=>{
+            if(!tooltipProperties){
+              return true
+            }
+            return tooltipProperties.includes(value[0])
+            })} />
         </EuiPanel>
       </KibanaThemeProvider>
     ); // TODO Should we always render the keypairs returned by the geo server? maybe as an accordian
