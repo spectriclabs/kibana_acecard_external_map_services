@@ -10,11 +10,11 @@ import { getConfig } from '../config';
 import { SldStyleEditor } from './sld_styler';
 import { getNotifications } from '../plugin';
 
-function titlesToOptions(titles: string[]): Array<EuiComboBoxOptionOption<string>> {
-  return titles.map((title) => {
+function serviceToOptions(services: WMSService[]): Array<EuiComboBoxOptionOption<string>> {
+  return services.map((service) => {
     const option: EuiComboBoxOptionOption<string> = {
-      value: title,
-      label: title,
+      value: service.baseURL,
+      label: service.title,
     };
     return option;
   });
@@ -101,9 +101,9 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
       }
     }
   }
-  async _fetchWMSLayers(serviceTitle: string) {
+  async _fetchWMSLayers(serviceurl: string) {
     const { services } = this.state;
-    const service = services.find((s) => s.title === serviceTitle);
+    const service = services.find((s) => s.baseURL === serviceurl);
     if (!service) {
       throw Error("You somehow selected a service that doesn't exist. Good job!");
     }
@@ -115,7 +115,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
     const layers = capability.getElementsByTagNameNS('http://www.opengis.net/wms', 'Layer');
     const names = [...layers]
       .filter((l) => l.getElementsByTagNameNS('http://www.opengis.net/wms', 'Layer').length === 0)
-      .map((l) => [...l.children].filter((c) => c.tagName === 'Name')[0]);
+      .map((l) => [...l.children].filter((c) => c.tagName === 'Name')[0]).filter(name => name != undefined)
     // const names = capability.getElementsByTagNameNS('http://www.opengis.net/wms', 'Name');
     const wmsLayers = [...names].map((n) => n.textContent || '').filter((s) => s !== '');
     // now we try to find the WFS service url
@@ -256,7 +256,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
                     if (notifications) {
                       notifications.toasts.addInfo({ title: "New Source Added", text: "Source is now selectable" })
                     }
-                    this.setState({ ...this.state, services: [...this.state.services], newURL: "" })
+                    this.setState({ ...this.state, services: [...this.state.services], newUrl: "" })
                   }
                 }}
               >
@@ -268,7 +268,7 @@ export class AcecardEMSEditor extends Component<RenderWizardArguments, State> {
             <EuiFormRow label={'Select Source'}>
               <EuiComboBox
                 singleSelection={true}
-                options={titlesToOptions(services.map((s) => s.title))}
+                options={serviceToOptions(services)}
                 onChange={(e) => {
                   const value = e.length ? e[0].value || '' : '';
                   this.setState({ selectedServer: value });
