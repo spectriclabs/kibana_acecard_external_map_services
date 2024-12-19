@@ -39,7 +39,8 @@ export class AcecardExternalMapsSourcePlugin
     core.application.register({
       id: PLUGIN_ID,
       title: PLUGIN_NAME,
-      navLinkStatus: AppNavLinkStatus.hidden,
+      navLinkStatus: "hidden",
+      visibleIn: [],
       mount: ({ history }) => {
         (async () => {
           const [coreStart] = await core.getStartServices();
